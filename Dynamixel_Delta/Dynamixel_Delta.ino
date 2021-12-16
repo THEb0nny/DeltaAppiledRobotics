@@ -13,10 +13,10 @@
 Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN); // Инициализация указателя на команды из библиотеки Dynamixel
 
 // Размеры робота
-#define E_DELTA 91.9 // Сторона подвижной платформы
-#define F_DELTA 159.349 // Сторона неподвижного основания
-#define RE_DELTA 212 // Длина нижнего плеча рычага
-#define RF_DELTA 104.495 // Длина верхнего плеча рычага
+#define F_BASE_PLATFORM_DELTA 159.349 // Длина стороны верхнего неподвижного основания
+#define F_PLATFORM_DELTA 91.9 // Длина стороны подвижной платформы
+#define R_E_DELTA 212 // Длина нижнего плеча рычага
+#define R_F_DELTA 104.495 // Длина верхнего плеча рычага
 
 // Тригонометрические константы
 #define SQRT3 sqrt(3.0)
@@ -89,23 +89,23 @@ void MoveMotor(int motorId, int speed, int goalPos) {
 int* Delta_FK(float theta1, float theta2, float theta3, float &x0, float &y0, float &z0) {
   int status = 0;
   
-  float t = (F_DELTA - E_DELTA) * TAN30 / 2;
+  float t = (F_BASE_PLATFORM_DELTA - F_PLATFORM_DELTA) * TAN30 / 2;
   float dtr = PI / (float)180.0;
 
   theta1 *= dtr;
   theta2 *= dtr;
   theta3 *= dtr;
 
-  float y1 = -(t + RF_DELTA * cos(theta1));
-  float z1 = -RF_DELTA * sin(theta1);
+  float y1 = -(t + R_F_DELTA * cos(theta1));
+  float z1 = -R_F_DELTA * sin(theta1);
 
-  float y2 = (t + RF_DELTA * cos(theta2)) * SIN30;
+  float y2 = (t + R_F_DELTA * cos(theta2)) * SIN30;
   float x2 = y2 * TAN60;
-  float z2 = -RF_DELTA * sin(theta2);
+  float z2 = -R_F_DELTA * sin(theta2);
 
-  float y3 = (t + RF_DELTA * cos(theta3)) * SIN30;
+  float y3 = (t + R_F_DELTA * cos(theta3)) * SIN30;
   float x3 = -y3 * TAN60;
-  float z3 = -RF_DELTA * sin(theta3);
+  float z3 = -R_F_DELTA * sin(theta3);
 
   float dnm = (y2 - y1) * x3 - (y3 - y1) * x2;
 
@@ -124,7 +124,7 @@ int* Delta_FK(float theta1, float theta2, float theta3, float &x0, float &y0, fl
   // a*z^2 + b*z + c = 0
   float a = a1 * a1 + a2 * a2 + dnm * dnm;
   float b = 2 * (a1 * b1 + a2 * (b2 - y1 * dnm) - z1 * dnm * dnm);
-  float c = (b2 - y1 * dnm) * (b2 - y1 * dnm) + b1 * b1 + dnm * dnm * (z1 * z1 - RE_DELTA * RE_DELTA);
+  float c = (b2 - y1 * dnm) * (b2 - y1 * dnm) + b1 * b1 + dnm * dnm * (z1 * z1 - R_F_DELTA * R_F_DELTA);
 
   // Дискриминант
   float d = pow(b, 2) - (float)4.0 * a * c;
@@ -146,14 +146,14 @@ int* Delta_FK(float theta1, float theta2, float theta3, float &x0, float &y0, fl
 }
 
 // Вспомогательная функция обратной кинематики, расчет угла theta1 (в плоскости YZ)
-int Delta_calcAngleYZ(float x0, float y0, float z0, float &theta) {
-    float y1 = -0.5 * 0.57735 * F_DELTA; // f/2 * tg 30
-    y0 -= 0.5 * 0.57735 * E_DELTA; // Сдвигаем центр к краю
+int DeltaCalcAngleYZ(float x0, float y0, float z0, float &theta) {
+    float y1 = -0.5 * 0.57735 * F_BASE_PLATFORM_DELTA; // f/2 * tg 30
+    y0 -= 0.5 * 0.57735 * F_PLATFORM_DELTA; // Сдвигаем центр к краю
     // z = a + b * y
-    float a = (x0 * x0 + y0 * y0 + z0 * z0 + RF_DELTA * RF_DELTA - RE_DELTA * RE_DELTA - y1 * y1) / (2 * z0);
+    float a = (x0 * x0 + y0 * y0 + z0 * z0 + R_F_DELTA * R_F_DELTA - R_F_DELTA * R_F_DELTA - y1 * y1) / (2 * z0);
     float b = (y1 - y0) / z0;
     // Дискриминант
-    float d = -(a + b * y1) * (a + b * y1) + RF_DELTA * (b * b * RF_DELTA + RF_DELTA);
+    float d = -(a + b * y1) * (a + b * y1) + R_F_DELTA * (b * b * R_F_DELTA + R_F_DELTA);
     if (d < 0) return -1; // Несуществующая точка
     float yj = (y1 - a * b - sqrt(d)) / (b * b + 1); //Выбираем внешнюю точку
     float zj = a + b * yj;
@@ -165,9 +165,9 @@ int Delta_calcAngleYZ(float x0, float y0, float z0, float &theta) {
 // Возвращаемый статус: 0 = OK, -1 = несуществующая позиция
 int* Delta_IK(float x0, float y0, float z0) { // Delta_IK(float x0, float y0, float z0, float &theta1, float &theta2, float &theta3)
     float theta1, theta2, theta3 = 0;
-    int status = Delta_calcAngleYZ(x0, y0, z0, theta1);
-    if (status == 0) status = Delta_calcAngleYZ(x0 * COS120 + y0 * SIN120, y0 * COS120 - x0 * SIN120, z0, theta2); // Rotate coords to +120 deg
-    if (status == 0) status = Delta_calcAngleYZ(x0 * COS120 - y0 * SIN120, y0 * COS120 + x0 * SIN120, z0, theta3); // Rotate coords to -120 deg
+    int status = DeltaCalcAngleYZ(x0, y0, z0, theta1);
+    if (status == 0) status = DeltaCalcAngleYZ(x0 * COS120 + y0 * SIN120, y0 * COS120 - x0 * SIN120, z0, theta2); // Rotate coords to +120 deg
+    if (status == 0) status = DeltaCalcAngleYZ(x0 * COS120 - y0 * SIN120, y0 * COS120 + x0 * SIN120, z0, theta3); // Rotate coords to -120 deg
     int *return_array = new int[4];
     return_array[0] = status;
     //return_array[1] = x;
