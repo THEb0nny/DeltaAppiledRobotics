@@ -1,5 +1,8 @@
-// https://habr.com/ru/post/390281/
 // https://emanual.robotis.com/docs/en/dxl/ax/ax-12a/
+// https://habr.com/ru/post/390281/
+
+// https://habr.com/ru/post/580970/
+// https://habr.com/ru/post/583190/
 
 #include <Dynamixel2Arduino.h>  // Подключение библиотеки Dynamixel
 
@@ -12,19 +15,34 @@
 
 Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN); // Инициализация указателя на команды из библиотеки Dynamixel
 
-// Размеры робота
+// Тригонометрические константы
+//#define SQRT3 sqrt(3.0)
+//#define SIN120 SQRT3 / 2.0
+//#define COS120 -0.5
+//#define TAN60 SQRT3
+//#define SIN30 0.5
+//#define TAN30 1 / SQRT3
+
+#define SIN120 sin(120 / DEG_TO_RAD)
+#define SIN240 sin(240 / DEG_TO_RAD)
+#define COS120 cos(120 / DEG_TO_RAD)
+#define COS240 cos(240 / DEG_TO_RAD)
+
+// Размеры робота в мм
 #define F_BASE_PLATFORM_DELTA 159.349 // Длина стороны верхнего неподвижного основания
-#define F_PLATFORM_DELTA 91.9 // Длина стороны подвижной платформы
-#define R_E_DELTA 212 // Длина нижнего плеча рычага
+#define OQ F_BASE_PLATFORM_DELTA * SQRT3 / 6 // Радиус окружности осей шарниров
+
+#define R_E_DELTA 212 // Длина рычага
 #define R_F_DELTA 104.495 // Длина верхнего плеча рычага
 
-// Тригонометрические константы
-#define SQRT3 sqrt(3.0)
-#define SIN120 SQRT3 / 2.0
-#define COS120 -0.5
-#define TAN60 SQRT3
-#define SIN30 0.5
-#define TAN30 1 / SQRT3
+#define R_L_DELTA 212 // Длина рычага
+#define R_R_DELTA 104.495 // Длина штанги
+
+#define F_PLATFORM_DELTA 91.9 // Длина стороны подвижной платформы
+#define VM F_PLATFORM_DELTA * SQRT3 / 6 // Радиус окружности осей рычагов
+
+#define Y_M_PLATFORM_DELTA 0.0 //
+#define Y_Q_BASE_PLATFORM_DELTA 0.0 //
 
 void setup() {
   DEBUG_SERIAL.begin(57600); // Установка скорости обмена данными по последовательному порту компьютера
@@ -84,6 +102,42 @@ void MoveMotor(int motorId, int speed, int goalPos) {
   dxl.setGoalPosition(motorId, goalPos); // Задание целевого положения
 }
 
+int* Delta_IK(int X_V, int Y_V, int Z_V) {
+  // Расчёт координат точки V в системах координат, повёрнутых на 120° и 240° по часовой стрелке относительно основной
+  float X_V_120 = X_V * COS120 - Y_V * SIN120;
+  float Y_V_120 = X_V * SIN120 + Y_V * COS120;
+  float X_V_240 = X_V * COS240 - Y_V * SIN240;
+  float Y_V_240 = X_V * SIN240 + Y_V * COS240;
+
+  float theta1 = Calc_Theta(X_V, Y_V, Z_V);
+  float theta2 = Calc_Theta(X_V_120, Y_V_120, Z_V);
+  float theta3 = Calc_Theta(X_V_240, Y_V_240, Z_V);
+
+  int *ik_theta = new int[3];
+  ik_theta[1] = theta1;
+  ik_theta[2] = theta2;
+  ik_theta[3] = theta3;
+  return ik_theta;
+}
+
+float Calc_Theta(int X_V, int Y_V, int Z_V) {
+  // Первый метод вычисления
+  float sigma = pow(R_L_DELTA, 2) - pow(R_R_DELTA, 2) + pow(X_V, 2) + pow(Y_M_PLATFORM_DELTA, 2) - pow(Y_Q_BASE_PLATFORM_DELTA, 2) + pow(Z_V, 2);
+  float a = pow(2 * Y_M_PLATFORM_DELTA - 2 * Y_Q_BASE_PLATFORM_DELTA, 2) / (4 * pow(Z_V, 2)) + 1;
+  float b = - 2 * Y_Q_BASE_PLATFORM_DELTA - ((2 * Y_M_PLATFORM_DELTA - 2 * Y_Q_BASE_PLATFORM_DELTA) * sigma) / (2 * pow(Z_V, 2));
+  float c = pow(sigma, 2) / (4 * pow(Z_V, 2)) - pow(R_L_DELTA, 2) + pow(Y_Q_BASE_PLATFORM_DELTA, 2);
+  float y_L = (-b - sqrt(pow(b, 2) - 4 * a * c)) / (2 * a);
+  float z_L = (-2 * y_L * Y_M_PLATFORM_DELTA + 2 * y_L * Y_Q_BASE_PLATFORM_DELTA + sigma) / (2 * Z_V);
+  float theta = 180 + atan(((-z_L) / (Y_Q_BASE_PLATFORM_DELTA - y_L)) / DEG_TO_RAD);
+  // Второй метод вычисления
+  //float NL = sqrt(pow(R_R_DELTA, 2) - pow(X_V, 2));
+  //float const_1 = Y_M_PLATFORM_DELTA - Y_Q_BASE_PLATFORM_DELTA;
+  //float NQ = sqrt(pow(const_1, 2) + pow(Z_V, 2));
+  //float theta = 360 - acos(((pow(R_L_DELTA, 2) + pow(MQ, 2) - pow(NL, 2)) / (2 * R_L_DELTA * NQ)) / DEG_TO_RAD) - acos((const_1 / NQ) / DEG_TO_RAD);
+  return theta;
+}
+
+/*
 // Прямая кинематика: (theta1, theta2, theta3) -> (x0, y0, z0)
 // Возвращаемый статус: 0 = OK, -1 = несуществующая позиция
 int* Delta_FK(float theta1, float theta2, float theta3, float &x0, float &y0, float &z0) {
@@ -175,3 +229,4 @@ int* Delta_IK(float x0, float y0, float z0) { // Delta_IK(float x0, float y0, fl
     //return_array[3] = z;
     return return_array;
 }
+*/
