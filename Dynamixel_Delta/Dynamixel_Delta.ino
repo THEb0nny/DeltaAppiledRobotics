@@ -16,17 +16,11 @@
 Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN); // Инициализация указателя на команды из библиотеки Dynamixel
 
 // Тригонометрические константы
-//#define SQRT3 sqrt(3.0)
-//#define SIN120 SQRT3 / 2.0
-//#define COS120 -0.5
-//#define TAN60 SQRT3
-//#define SIN30 0.5
-//#define TAN30 1 / SQRT3
-
-#define SIN120 sin(120 / DEG_TO_RAD)
-#define SIN240 sin(240 / DEG_TO_RAD)
-#define COS120 cos(120 / DEG_TO_RAD)
-#define COS240 cos(240 / DEG_TO_RAD)
+#define SQRT3 sqrt(3.0)
+#define SIN120 sin(radians(120));
+#define SIN240 sin(radians(240));
+#define COS120 cos(radians(120));
+#define COS240 cos(radians(240));
 
 // Размеры робота в мм
 #define F_BASE_PLATFORM_DELTA 159.349 // Длина стороны верхнего неподвижного основания
@@ -41,10 +35,8 @@ Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN); // Инициализация у
 #define F_PLATFORM_DELTA 91.9 // Длина стороны подвижной платформы
 #define VM F_PLATFORM_DELTA * SQRT3 / 6 // Радиус окружности осей рычагов
 
-#define Y_M_PLATFORM_DELTA 0.0 //
-#define Y_Q_BASE_PLATFORM_DELTA 0.0 //
-
 void setup() {
+  Serial.print(radians(45));
   DEBUG_SERIAL.begin(57600); // Установка скорости обмена данными по последовательному порту компьютера
   while(!DEBUG_SERIAL); // Ждём, пока монитор порта не откроется
   DEBUG_SERIAL.println("Setup...");
@@ -121,112 +113,71 @@ int* Delta_IK(int X_V, int Y_V, int Z_V) {
 }
 
 float Calc_Theta(int X_V, int Y_V, int Z_V) {
+  float y_M = -VM + Y_V;
+  float y_Q = -OQ;
   // Первый метод вычисления
-  float sigma = pow(R_L_DELTA, 2) - pow(R_R_DELTA, 2) + pow(X_V, 2) + pow(Y_M_PLATFORM_DELTA, 2) - pow(Y_Q_BASE_PLATFORM_DELTA, 2) + pow(Z_V, 2);
-  float a = pow(2 * Y_M_PLATFORM_DELTA - 2 * Y_Q_BASE_PLATFORM_DELTA, 2) / (4 * pow(Z_V, 2)) + 1;
-  float b = - 2 * Y_Q_BASE_PLATFORM_DELTA - ((2 * Y_M_PLATFORM_DELTA - 2 * Y_Q_BASE_PLATFORM_DELTA) * sigma) / (2 * pow(Z_V, 2));
-  float c = pow(sigma, 2) / (4 * pow(Z_V, 2)) - pow(R_L_DELTA, 2) + pow(Y_Q_BASE_PLATFORM_DELTA, 2);
+  float sigma = pow(R_L_DELTA, 2) - pow(R_R_DELTA, 2) + pow(X_V, 2) + pow(y_M, 2) - pow(y_Q, 2) + pow(Z_V, 2);
+  float a = pow(2 * y_M - 2 * y_Q, 2) / (4 * pow(Z_V, 2)) + 1;
+  float b = - 2 * y_Q - ((2 * y_M - 2 * y_Q) * sigma) / (2 * pow(Z_V, 2));
+  float c = pow(sigma, 2) / (4 * pow(Z_V, 2)) - pow(R_L_DELTA, 2) + pow(y_Q, 2);
   float y_L = (-b - sqrt(pow(b, 2) - 4 * a * c)) / (2 * a);
-  float z_L = (-2 * y_L * Y_M_PLATFORM_DELTA + 2 * y_L * Y_Q_BASE_PLATFORM_DELTA + sigma) / (2 * Z_V);
-  float theta = 180 + atan(((-z_L) / (Y_Q_BASE_PLATFORM_DELTA - y_L)) / DEG_TO_RAD);
+  float z_L = (-2 * y_L * y_M + 2 * y_L * y_Q + sigma) / (2 * Z_V);
+  float theta = 180 + atan(radians((-z_L) / (y_Q - y_L)));
   // Второй метод вычисления
   //float NL = sqrt(pow(R_R_DELTA, 2) - pow(X_V, 2));
-  //float const_1 = Y_M_PLATFORM_DELTA - Y_Q_BASE_PLATFORM_DELTA;
+  //float const_1 = y_M - y_Q;
   //float NQ = sqrt(pow(const_1, 2) + pow(Z_V, 2));
-  //float theta = 360 - acos(((pow(R_L_DELTA, 2) + pow(MQ, 2) - pow(NL, 2)) / (2 * R_L_DELTA * NQ)) / DEG_TO_RAD) - acos((const_1 / NQ) / DEG_TO_RAD);
+  //float theta = 360 - acos(radians((pow(R_L_DELTA, 2) + pow(NQ, 2) - pow(NL, 2)) / (2 * R_L_DELTA * NQ))) - acos(radians(const_1 / NQ));
   return theta;
 }
 
-/*
-// Прямая кинематика: (theta1, theta2, theta3) -> (x0, y0, z0)
-// Возвращаемый статус: 0 = OK, -1 = несуществующая позиция
-int* Delta_FK(float theta1, float theta2, float theta3, float &x0, float &y0, float &z0) {
-  int status = 0;
-  
-  float t = (F_BASE_PLATFORM_DELTA - F_PLATFORM_DELTA) * TAN30 / 2;
-  float dtr = PI / (float)180.0;
-
-  theta1 *= dtr;
-  theta2 *= dtr;
-  theta3 *= dtr;
-
-  float y1 = -(t + R_F_DELTA * cos(theta1));
-  float z1 = -R_F_DELTA * sin(theta1);
-
-  float y2 = (t + R_F_DELTA * cos(theta2)) * SIN30;
-  float x2 = y2 * TAN60;
-  float z2 = -R_F_DELTA * sin(theta2);
-
-  float y3 = (t + R_F_DELTA * cos(theta3)) * SIN30;
-  float x3 = -y3 * TAN60;
-  float z3 = -R_F_DELTA * sin(theta3);
-
-  float dnm = (y2 - y1) * x3 - (y3 - y1) * x2;
-
-  float w1 = y1 * y1 + z1 * z1;
-  float w2 = x2 * x2 + y2 * y2 + z2*z2;
-  float w3 = x3 * x3 + y3 * y3 + z3 * z3;
-
-  // x = (a1*z + b1) / dnm
-  float a1 = (z2 - z1) * (y3 - y1) - (z3 - z1) * (y2 - y1);
-  float b1 = -((w2 - w1) * (y3 - y1) - (w3 - w1) * (y2 - y1)) / 2.0;
-
-  // y = (a2*z + b2) / dnm;
-  float a2 = -(z2 - z1) * x3 + (z3 - z1) * x2;
-  float b2 = ((w2 - w1) * x3 - (w3 - w1) * x2) / 2.0;
-
-  // a*z^2 + b*z + c = 0
-  float a = a1 * a1 + a2 * a2 + dnm * dnm;
-  float b = 2 * (a1 * b1 + a2 * (b2 - y1 * dnm) - z1 * dnm * dnm);
-  float c = (b2 - y1 * dnm) * (b2 - y1 * dnm) + b1 * b1 + dnm * dnm * (z1 * z1 - R_F_DELTA * R_F_DELTA);
-
-  // Дискриминант
-  float d = pow(b, 2) - (float)4.0 * a * c;
-  if (d < 0) {
-    //return -1; // Несуществующая позиция
-    status = -1;
-  }
-
-  z0 = -(float)0.5 * (b + sqrt(d)) / a;
-  x0 = (a1 * z0 + b1) / dnm;
-  y0 = (a2 * z0 + b2) / dnm;
-  
-  int *return_array = new int[4];
-  return_array[0] = 0; // Ошибки нет
-  return_array[1] = x0;
-  return_array[2] = y0;
-  return_array[3] = z0;
-  return return_array;
+float* Delta_FK(float theta1, int theta2, int theta3) {
+  // Расчёт координат концов рычагов
+  float x_L1 = 0;
+  float y_L1 = -OQ - R_L_DELTA * cos(radians(theta1 - 180));
+  float z_L1 = -R_L_DELTA * sin(radians(theta2 - 180));
+  float z_L2 = -R_L_DELTA * sin(radians(theta2 - 180));
+  float z_L3 = -R_L_DELTA * sin(radians(theta3 - 180));
+  float y_L2S = -OQ - R_L_DELTA * cos(radians(theta2 - 180));
+  float y_L3S = -OQ - R_L_DELTA * cos(radians(theta3 - 180));
+  float x_L2 = y_L2S * sin(radians(120));
+  float y_L2 = y_L2S * cos(radians(120));
+  float x_L3 = y_L3S * sin(radians(120));
+  float y_L3 = y_L2S * cos(radians(120));
+  // Расчёт координат центров сфер (сдвинутых концов рычагов)
+  float x_P1 = x_L1;
+  float y_P1 = y_L1 + VM;
+  float z_P1 = z_L1;
+  float x_P2 = x_L2 + VM * cos(radians(30));
+  float y_P2 = y_L2 - VM * sin(radians(30));
+  float z_P2 = z_L2;
+  float x_P3 = x_L3 - VM * cos(radians(30));
+  float y_P3 = y_L3 - VM * sin(radians(30));
+  float z_P3 = z_L3;
+  // Расчёт точки пересечения сфер
+  float w1 = pow(R_R_DELTA, 2) - pow(x_P1, 2) - pow(y_P1, 2) - pow(z_P1, 2);
+  float w2 = pow(R_R_DELTA, 2) - pow(x_P2, 2) - pow(y_P2, 2) - pow(z_P2, 2);
+  float w3 = pow(R_R_DELTA, 2) - pow(x_P3, 2) - pow(y_P3, 2) - pow(z_P3, 2);
+  float a1 = x_P2 - x_P1;
+  float a2 = x_P3 - x_P1;
+  float b1 = y_P2 - y_P1;
+  float b2 = y_P3 - y_P1;
+  float c1 = z_P2 - z_P1;
+  float c2 = z_P3 - z_P1;
+  float d1 = (w1 - w2) / 2;
+  float d2 = (w1 - w3) / 2;
+  float e1 = (b1 * c2 - b2 * c1) / (a1 * b2 - a2 * b1);
+  float f1 = -(b1 * d2 - b2 * d1) / (a1 * b2 - a2 * b1);
+  float e2 = -(a1 * c2 - a2 * c1) / (a1 * b2 - a2 * b1);
+  float f2 = (a1 * d2 - a2 * d1) / (a1 * b2 - a2 * b1);
+  float a_KU = pow(e1, 2) + pow(e2, 2) + 1;
+  float b_KU = 2 * e1 * (f1 - x_P1) - 2 * z_P1 + 2 * e2 * (f2 - y_P1);
+  float c_KU = pow(z_P1, 2) + pow(f1 - x_P1, 2) + pow(f2 - y_P1, 2) - pow(R_R_DELTA, 2);
+  float z_V = ((-b_KU - sqrt(pow(b_KU, 2) - 4 * a_KU * c_KU))) / (2 * a_KU);
+  float x_V = e1 * z_V + f1;
+  float y_V = e2 * z_V + f2;
+  //float L1[3] = {x_L1, y_L1, z_L1};
+  //float L2[3] = {x_L2, y_L2, z_L2};
+  //float L3[3] = {x_L3, y_L3, z_L3};
+  float V[3] = {x_V, y_V, z_V}; 
 }
-
-// Вспомогательная функция обратной кинематики, расчет угла theta1 (в плоскости YZ)
-int DeltaCalcAngleYZ(float x0, float y0, float z0, float &theta) {
-    float y1 = -0.5 * 0.57735 * F_BASE_PLATFORM_DELTA; // f/2 * tg 30
-    y0 -= 0.5 * 0.57735 * F_PLATFORM_DELTA; // Сдвигаем центр к краю
-    // z = a + b * y
-    float a = (x0 * x0 + y0 * y0 + z0 * z0 + R_F_DELTA * R_F_DELTA - R_F_DELTA * R_F_DELTA - y1 * y1) / (2 * z0);
-    float b = (y1 - y0) / z0;
-    // Дискриминант
-    float d = -(a + b * y1) * (a + b * y1) + R_F_DELTA * (b * b * R_F_DELTA + R_F_DELTA);
-    if (d < 0) return -1; // Несуществующая точка
-    float yj = (y1 - a * b - sqrt(d)) / (b * b + 1); //Выбираем внешнюю точку
-    float zj = a + b * yj;
-    theta = 180.0 * atan(-zj / (y1 - yj)) / PI + ((yj > y1) ? 180.0 : 0.0);
-    return 0;
-}
-
-// Обратная кинематика: (x0, y0, z0) -> (theta1, theta2, theta3)
-// Возвращаемый статус: 0 = OK, -1 = несуществующая позиция
-int* Delta_IK(float x0, float y0, float z0) { // Delta_IK(float x0, float y0, float z0, float &theta1, float &theta2, float &theta3)
-    float theta1, theta2, theta3 = 0;
-    int status = DeltaCalcAngleYZ(x0, y0, z0, theta1);
-    if (status == 0) status = DeltaCalcAngleYZ(x0 * COS120 + y0 * SIN120, y0 * COS120 - x0 * SIN120, z0, theta2); // Rotate coords to +120 deg
-    if (status == 0) status = DeltaCalcAngleYZ(x0 * COS120 - y0 * SIN120, y0 * COS120 + x0 * SIN120, z0, theta3); // Rotate coords to -120 deg
-    int *return_array = new int[4];
-    return_array[0] = status;
-    //return_array[1] = x;
-    //return_array[2] = y;
-    //return_array[3] = z;
-    return return_array;
-}
-*/
