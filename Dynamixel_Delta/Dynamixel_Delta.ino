@@ -1,6 +1,5 @@
 // https://emanual.robotis.com/docs/en/dxl/ax/ax-12a/
 // https://habr.com/ru/post/390281/
-
 // https://habr.com/ru/post/580970/
 // https://habr.com/ru/post/583190/
 // https://vk.com/id317251061
@@ -76,48 +75,50 @@ void setup() {
   delay(500);
   // Занять среднюю позицию
   for (int i = 1; i <= JOINT_N; i++) {
-    MoveMotor(i, 50, 410);
+    MoveMotorToGoal(i, 50, 410);
   }
   // Ждём, чтобы все приводы заняли позицию
-  WaitMotorsTakeGoalPosition(410, 410, 410);
+  WaitMotorsTakeGoalPos(410, 410, 410);
   delay(500);
 }
 
 void loop() {
   /*
   for (int i = 1; i <= JOINT_N; i++) {
-    MoveMotor(i, 50, 410);
+    MoveMotorToGoal(i, 50, 410);
   }
   // Ждём, чтобы все приводы заняли позицию
   WaitMotorsTakeGoalPosition(410, 410, 410);
 
   for (int i = 1; i <= JOINT_N; i++) {
-    MoveMotor(i, 50, 512);
+    MoveMotorToGoal(i, 50, 512);
   }
   // Ждём, чтобы все приводы заняли позицию
-  WaitMotorsTakeGoalPosition(512, 512, 512);
+  WaitMotorsTakeGoalPos=(512, 512, 512);
   */
   float* motPos = new float[3];
   motPos = Delta_IK(0, 0, -100);
   DEBUG_SERIAL.println(motPos[0]);
   DEBUG_SERIAL.println(motPos[1]);
   DEBUG_SERIAL.println(motPos[2]);
-  MoveMotor(1, 50, motPos[0]);
-  MoveMotor(2, 50, motPos[1]);
-  MoveMotor(3, 50, motPos[2]);
-  WaitMotorsTakeGoalPosition(motPos[0], motPos[1], motPos[2]);
+  MoveMotorToGoal(1, 50, motPos[0]);
+  MoveMotorToGoal(2, 50, motPos[1]);
+  MoveMotorToGoal(3, 50, motPos[2]);
+  WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
 }
 
 int ConvertDegreesToGoalPos(float deg) {
-  deg = constrain(deg, 0, 360);
-  int goalPos = map(deg, 0, 360, );
+  // 30° - мертвая зона диномикселя
+  deg = constrain(deg, 30, 300); // Ограничиваем входное значение, где 30° - это начальный градус слева и 300°
+  float goalPos = map(deg, 0, 360, 1024, 0);
+  return goalPos;
 }
 
-void WaitMotorsTakeGoalPosition(int posMotor1, int posMotor2, int posMotor3) {
+void WaitMotorsTakeGoalPos(int posMotor1, int posMotor2, int posMotor3) {
   while (dxl.getPresentPosition(1) != posMotor1 && dxl.getPresentPosition(2) != posMotor2 && dxl.getPresentPosition(3) != posMotor3);
 }
 
-void MoveMotor(int motorId, int speed, int goalPos) {
+void MoveMotorToGoal(int motorId, int speed, int goalPos) {
   dxl.setGoalVelocity(motorId, speed); // Задание целевой скорости
   dxl.setGoalPosition(motorId, goalPos); // Задание целевого положения
 }
