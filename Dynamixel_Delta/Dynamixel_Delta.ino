@@ -21,7 +21,7 @@
 #define EXP_BOARD_LED3_PIN 20 // Пин светодиода 3 на плате расширения
 
 // Тригонометрические константы
-#define SQRT3 sqrt(3.0)
+#define SQRT3 sqrtf(3.0)
 #define COS120 cos(radians(120))
 #define SIN120 sin(radians(120))
 #define COS240 cos(radians(240))
@@ -32,13 +32,13 @@
 #define LED_LOW HIGH
 
 // Размеры робота в мм
-#define F_BASE_PLATFORM_DELTA 270 //159.349 // Длина стороны верхнего неподвижного основания
+#define F_BASE_PLATFORM_DELTA 159.349 // Длина стороны верхнего неподвижного основания
 #define OQ F_BASE_PLATFORM_DELTA * SQRT3 / 6 // Радиус окружности осей шарниров
 
-#define R_L_DELTA 170 //100 // Длина рычага
-#define R_R_DELTA 320 //212 // Длина штанги
+#define R_L_DELTA 100 // Длина рычага
+#define R_R_DELTA 212 // Длина штанги
 
-#define F_PLATFORM_DELTA 80 //91.8 // Длина стороны подвижной платформы
+#define F_PLATFORM_DELTA 91.8 // Длина стороны подвижной платформы
 #define VM F_PLATFORM_DELTA * SQRT3 / 6 // Радиус окружности осей рычагов
 
 Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN); // Инициализация указателя на команды из библиотеки Dynamixel
@@ -80,10 +80,11 @@ void setup() {
   }
   // Ждём, чтобы все приводы заняли позицию
   WaitMotorsTakeGoalPosition(410, 410, 410);
-  delay(1000);
+  delay(500);
 }
 
 void loop() {
+  /*
   for (int i = 1; i <= JOINT_N; i++) {
     MoveMotor(i, 50, 410);
   }
@@ -95,11 +96,21 @@ void loop() {
   }
   // Ждём, чтобы все приводы заняли позицию
   WaitMotorsTakeGoalPosition(512, 512, 512);
+  */
   float* motPos = new float[3];
-  motPos = Delta_IK(10, 30, -310);
+  motPos = Delta_IK(0, 0, -100);
   DEBUG_SERIAL.println(motPos[0]);
   DEBUG_SERIAL.println(motPos[1]);
   DEBUG_SERIAL.println(motPos[2]);
+  MoveMotor(1, 50, motPos[0]);
+  MoveMotor(2, 50, motPos[1]);
+  MoveMotor(3, 50, motPos[2]);
+  WaitMotorsTakeGoalPosition(motPos[0], motPos[1], motPos[2]);
+}
+
+int ConvertDegreesToGoalPos(float deg) {
+  deg = constrain(deg, 0, 360);
+  int goalPos = map(deg, 0, 360, );
 }
 
 void WaitMotorsTakeGoalPosition(int posMotor1, int posMotor2, int posMotor3) {
@@ -111,7 +122,7 @@ void MoveMotor(int motorId, int speed, int goalPos) {
   dxl.setGoalPosition(motorId, goalPos); // Задание целевого положения
 }
 
-float* Delta_IK(int X_V, int Y_V, int Z_V) {
+float* Delta_IK(float X_V, float Y_V, float Z_V) {
   // Расчёт координат точки V в системах координат, повёрнутых на 120° и 240° по часовой стрелке относительно основной
   float X_V_120 = X_V * COS120 - Y_V * SIN120;
   float Y_V_120 = X_V * SIN120 + Y_V * COS120;
@@ -129,18 +140,20 @@ float Calc_Theta(int X_V, int Y_V, int Z_V) {
   float y_M = -VM + Y_V;
   float y_Q = -OQ;
   // Первый метод вычисления
+  /*
   float sigma = pow(R_L_DELTA, 2) - pow(R_R_DELTA, 2) + pow(X_V, 2) + pow(y_M, 2) - pow(y_Q, 2) + pow(Z_V, 2);
   float a = pow(2 * y_M - 2 * y_Q, 2) / (4 * pow(Z_V, 2)) + 1;
   float b = - 2 * y_Q - ((2 * y_M - 2 * y_Q) * sigma) / (2 * pow(Z_V, 2));
   float c = pow(sigma, 2) / (4 * pow(Z_V, 2)) - pow(R_L_DELTA, 2) + pow(y_Q, 2);
   float y_L = (-b - sqrt(pow(b, 2) - 4 * a * c)) / (2 * a);
   float z_L = (-2 * y_L * y_M + 2 * y_L * y_Q + sigma) / (2 * Z_V);
-  float theta = 180 + atan(radians((-z_L) / (y_Q - y_L)));
+  float theta = 180 + degrees(atan((-z_L) / (y_Q - y_L)));
+  */
   // Второй метод вычисления
-  //float NL = sqrt(pow(R_R_DELTA, 2) - pow(X_V, 2));
-  //float const_1 = y_M - y_Q;
-  //float NQ = sqrt(pow(const_1, 2) + pow(Z_V, 2));
-  //float theta = 360 - acos(radians((pow(R_L_DELTA, 2) + pow(NQ, 2) - pow(NL, 2)) / (2 * R_L_DELTA * NQ))) - acos(radians(const_1 / NQ));
+  float NL = sqrtf(pow(R_R_DELTA, 2) - pow(X_V, 2));
+  float const_1 = y_M - y_Q;
+  float NQ = sqrtf(pow(const_1, 2) + pow(Z_V, 2));
+  float theta = 360 - degrees(acos((pow(R_L_DELTA, 2) + pow(NQ, 2) - pow(NL, 2)) / (2 * R_L_DELTA * NQ))) - degrees(acos(const_1 / NQ));
   return theta;
 }
 
@@ -148,15 +161,15 @@ float* Delta_FK(float theta1, int theta2, int theta3) {
   // Расчёт координат концов рычагов
   float x_L1 = 0;
   float y_L1 = -OQ - R_L_DELTA * cos(radians(theta1 - 180));
-  float z_L1 = -R_L_DELTA * sin(radians(theta2 - 180));
+  float z_L1 = -R_L_DELTA * sin(radians(theta1 - 180));
   float z_L2 = -R_L_DELTA * sin(radians(theta2 - 180));
   float z_L3 = -R_L_DELTA * sin(radians(theta3 - 180));
   float y_L2S = -OQ - R_L_DELTA * cos(radians(theta2 - 180));
   float y_L3S = -OQ - R_L_DELTA * cos(radians(theta3 - 180));
   float x_L2 = y_L2S * sin(radians(120));
   float y_L2 = y_L2S * cos(radians(120));
-  float x_L3 = y_L3S * sin(radians(120));
-  float y_L3 = y_L2S * cos(radians(120));
+  float x_L3 = y_L3S * sin(radians(240));
+  float y_L3 = y_L2S * cos(radians(240));
   // Расчёт координат центров сфер (сдвинутых концов рычагов)
   float x_P1 = x_L1;
   float y_P1 = y_L1 + VM;
@@ -186,11 +199,13 @@ float* Delta_FK(float theta1, int theta2, int theta3) {
   float a_KU = pow(e1, 2) + pow(e2, 2) + 1;
   float b_KU = 2 * e1 * (f1 - x_P1) - 2 * z_P1 + 2 * e2 * (f2 - y_P1);
   float c_KU = pow(z_P1, 2) + pow(f1 - x_P1, 2) + pow(f2 - y_P1, 2) - pow(R_R_DELTA, 2);
-  float z_V = ((-b_KU - sqrt(pow(b_KU, 2) - 4 * a_KU * c_KU))) / (2 * a_KU);
+  float z_V = ((-b_KU - sqrtf(pow(b_KU, 2) - 4 * a_KU * c_KU))) / (2 * a_KU);
   float x_V = e1 * z_V + f1;
   float y_V = e2 * z_V + f2;
   //float L1[3] = {x_L1, y_L1, z_L1};
   //float L2[3] = {x_L2, y_L2, z_L2};
   //float L3[3] = {x_L3, y_L3, z_L3};
-  float V[3] = {x_V, y_V, z_V}; 
+  float *fk_V = new float[3];
+  fk_V[0] = x_V, fk_V[1] = y_V, fk_V[2] = z_V;
+  return fk_V;
 }
