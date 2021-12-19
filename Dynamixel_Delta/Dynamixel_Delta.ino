@@ -32,7 +32,7 @@ Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN); // Инициализация у
 #define R_L_DELTA 212 // Длина рычага
 #define R_R_DELTA 104.495 // Длина штанги
 
-#define F_PLATFORM_DELTA 91.9 // Длина стороны подвижной платформы
+#define F_PLATFORM_DELTA 91.8 // Длина стороны подвижной платформы
 #define VM F_PLATFORM_DELTA * SQRT3 / 6 // Радиус окружности осей рычагов
 
 void setup() {
