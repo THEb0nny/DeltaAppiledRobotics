@@ -110,7 +110,7 @@ void loop() {
 int ConvertDegreesToGoalPos(float deg) {
   // 30° - мертвая зона диномикселя
   deg = constrain(deg, 30, 300); // Ограничиваем входное значение, где 30° - это начальный градус слева и 300°
-  float goalPos = map(deg, 0, 360, 1024, 0);
+  float goalPos = map(deg, 30, 330, 1023, 1);
   return goalPos;
 }
 
