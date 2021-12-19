@@ -3,6 +3,7 @@
 
 // https://habr.com/ru/post/580970/
 // https://habr.com/ru/post/583190/
+// https://vk.com/id317251061
 
 #include <Dynamixel2Arduino.h>  // Подключение библиотеки Dynamixel
 
@@ -13,36 +14,50 @@
 #define DXL_PROTOCOL_VERSION 1.0 // Инициализация переменной, отвечащей за протокол передачи данных от OpenCM9.04 к приводам
 #define JOINT_N 3 // Количество приводов
 
-Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN); // Инициализация указателя на команды из библиотеки Dynamixel
+#define EXP_BOARD_BUTTON1_PIN 16 // Пин кнопки 1 на плате расширения
+#define EXP_BOARD_BUTTON2_PIN 17 // Пин кнопки 2 на плате расширения
+#define EXP_BOARD_LED1_PIN 18 // Пин светодиода 1 на плате расширения
+#define EXP_BOARD_LED2_PIN 19 // Пин светодиода 2 на плате расширения
+#define EXP_BOARD_LED3_PIN 20 // Пин светодиода 3 на плате расширения
 
 // Тригонометрические константы
 #define SQRT3 sqrt(3.0)
-#define SIN120 sin(radians(120));
-#define SIN240 sin(radians(240));
-#define COS120 cos(radians(120));
-#define COS240 cos(radians(240));
+#define COS120 cos(radians(120))
+#define SIN120 sin(radians(120))
+#define COS240 cos(radians(240))
+#define SIN240 sin(radians(240))
+
+// Для светодиодов на плате расширения, которые от земли
+#define LED_HIGH LOW
+#define LED_LOW HIGH
 
 // Размеры робота в мм
-#define F_BASE_PLATFORM_DELTA 159.349 // Длина стороны верхнего неподвижного основания
+#define F_BASE_PLATFORM_DELTA 270 //159.349 // Длина стороны верхнего неподвижного основания
 #define OQ F_BASE_PLATFORM_DELTA * SQRT3 / 6 // Радиус окружности осей шарниров
 
-#define R_E_DELTA 212 // Длина рычага
-#define R_F_DELTA 104.495 // Длина верхнего плеча рычага
+#define R_L_DELTA 170 //100 // Длина рычага
+#define R_R_DELTA 320 //212 // Длина штанги
 
-#define R_L_DELTA 212 // Длина рычага
-#define R_R_DELTA 104.495 // Длина штанги
-
-#define F_PLATFORM_DELTA 91.8 // Длина стороны подвижной платформы
+#define F_PLATFORM_DELTA 80 //91.8 // Длина стороны подвижной платформы
 #define VM F_PLATFORM_DELTA * SQRT3 / 6 // Радиус окружности осей рычагов
 
+Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN); // Инициализация указателя на команды из библиотеки Dynamixel
+
 void setup() {
-  Serial.print(radians(45));
   DEBUG_SERIAL.begin(57600); // Установка скорости обмена данными по последовательному порту компьютера
-  while(!DEBUG_SERIAL); // Ждём, пока монитор порта не откроется
+  pinMode(EXP_BOARD_BUTTON1_PIN, INPUT_PULLDOWN); // Установка режима кнопки 1 на плате расширения
+  pinMode(EXP_BOARD_BUTTON2_PIN, INPUT_PULLDOWN); // Установка режима кнопки 2 на плате расширения
+  pinMode(EXP_BOARD_LED1_PIN, OUTPUT); // Установка режима пина светодиода 1 на плате расширения
+  pinMode(EXP_BOARD_LED2_PIN, OUTPUT); // Установка режима пина светодиода 2 на плате расширения
+  pinMode(EXP_BOARD_LED3_PIN, OUTPUT); // Установка режима пина светодиода 3 на плате расширения
+  digitalWrite(EXP_BOARD_LED1_PIN, LED_LOW); // Выключаем светодиод 1 на плате расширения
+  digitalWrite(EXP_BOARD_LED2_PIN, LED_LOW); // Выключаем светодиод 2 на плате расширения
+  digitalWrite(EXP_BOARD_LED3_PIN, LED_LOW); // Выключаем светодиод 3 на плате расширения
+  //while(!DEBUG_SERIAL); // Ждём, пока монитор порта не откроется
+  while(digitalRead(EXP_BOARD_BUTTON1_PIN) == 0); // Ждём, пока не будет нажата кнопка 1 на плате расширения
   DEBUG_SERIAL.println("Setup...");
   dxl.begin(1000000); // Установка скорости обмена данными по последовательному порту манипулятора
   dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION); // Выбор протокола обмена данными
-  delay(1000); // Ждём, чтобы моторы успели подключиться
   for (int i = 1; i <= JOINT_N; i++) { // Цикл для перебора всех приводов
     while (true) {
       if(dxl.ping(i) == true) { // Проверка отвечает ли мотор
@@ -53,12 +68,12 @@ void setup() {
         delay(500);
       }
     }
-    dxl.torqueOff(i); // Отключение блокировки привода
+    dxl.torqueOff(i); // Отключение блокировки привода, чтобы установить режим работы!
     dxl.setOperatingMode(i, OP_POSITION); // Установка режима работы привода в качестве шарнира
     delay(10);
   }
   DEBUG_SERIAL.println("Start...");
-  delay(100);
+  delay(500);
   // Занять среднюю позицию
   for (int i = 1; i <= JOINT_N; i++) {
     MoveMotor(i, 50, 410);
@@ -66,9 +81,6 @@ void setup() {
   // Ждём, чтобы все приводы заняли позицию
   WaitMotorsTakeGoalPosition(410, 410, 410);
   delay(1000);
-  int* motPos = new int[4];
-  motPos = Delta_IK(0, 0, 0);
-  DEBUG_SERIAL.println(motPos[0]);
 }
 
 void loop() {
@@ -83,10 +95,15 @@ void loop() {
   }
   // Ждём, чтобы все приводы заняли позицию
   WaitMotorsTakeGoalPosition(512, 512, 512);
+  float* motPos = new float[3];
+  motPos = Delta_IK(10, 30, -310);
+  DEBUG_SERIAL.println(motPos[0]);
+  DEBUG_SERIAL.println(motPos[1]);
+  DEBUG_SERIAL.println(motPos[2]);
 }
 
 void WaitMotorsTakeGoalPosition(int posMotor1, int posMotor2, int posMotor3) {
-  while (dxl.getPresentPosition(1) != posMotor1 && dxl.getPresentPosition(2) != posMotor2 && dxl.getPresentPosition(3) != posMotor3) { delay(5); }
+  while (dxl.getPresentPosition(1) != posMotor1 && dxl.getPresentPosition(2) != posMotor2 && dxl.getPresentPosition(3) != posMotor3);
 }
 
 void MoveMotor(int motorId, int speed, int goalPos) {
@@ -94,21 +111,17 @@ void MoveMotor(int motorId, int speed, int goalPos) {
   dxl.setGoalPosition(motorId, goalPos); // Задание целевого положения
 }
 
-int* Delta_IK(int X_V, int Y_V, int Z_V) {
+float* Delta_IK(int X_V, int Y_V, int Z_V) {
   // Расчёт координат точки V в системах координат, повёрнутых на 120° и 240° по часовой стрелке относительно основной
   float X_V_120 = X_V * COS120 - Y_V * SIN120;
   float Y_V_120 = X_V * SIN120 + Y_V * COS120;
   float X_V_240 = X_V * COS240 - Y_V * SIN240;
   float Y_V_240 = X_V * SIN240 + Y_V * COS240;
 
-  float theta1 = Calc_Theta(X_V, Y_V, Z_V);
-  float theta2 = Calc_Theta(X_V_120, Y_V_120, Z_V);
-  float theta3 = Calc_Theta(X_V_240, Y_V_240, Z_V);
-
-  int *ik_theta = new int[3];
-  ik_theta[1] = theta1;
-  ik_theta[2] = theta2;
-  ik_theta[3] = theta3;
+  float *ik_theta = new float[3];
+  ik_theta[0] = Calc_Theta(X_V, Y_V, Z_V);
+  ik_theta[1] = Calc_Theta(X_V_120, Y_V_120, Z_V);
+  ik_theta[2] = Calc_Theta(X_V_240, Y_V_240, Z_V);
   return ik_theta;
 }
 
