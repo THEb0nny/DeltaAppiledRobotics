@@ -1,5 +1,4 @@
 // https://emanual.robotis.com/docs/en/dxl/ax/ax-12a/
-// https://habr.com/ru/post/390281/
 // https://habr.com/ru/post/580970/
 // https://habr.com/ru/post/583190/
 // https://vk.com/id317251061
@@ -39,6 +38,8 @@
 
 #define F_PLATFORM_DELTA 91.8 // Длина стороны подвижной платформы
 #define VM F_PLATFORM_DELTA * SQRT3 / 6 // Радиус окружности осей рычагов
+
+#define OFFSET_V_IN_PLATFORM_HEIGHT 10 // Размер высоты платформы для смещения точки V
 
 Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN); // Инициализация указателя на команды из библиотеки Dynamixel
 
@@ -83,39 +84,57 @@ void setup() {
 }
 
 void loop() {
-  /*
-  for (int i = 1; i <= JOINT_N; i++) {
-    MoveMotorToGoal(i, 50, 410);
-  }
-  // Ждём, чтобы все приводы заняли позицию
-  WaitMotorsTakeGoalPosition(410, 410, 410);
-
-  for (int i = 1; i <= JOINT_N; i++) {
-    MoveMotorToGoal(i, 50, 512);
-  }
-  // Ждём, чтобы все приводы заняли позицию
-  WaitMotorsTakeGoalPos=(512, 512, 512);
-  */
   float* motPos = new float[3];
-  motPos = Delta_IK(0, 0, -100);
-  DEBUG_SERIAL.println(motPos[0]);
-  DEBUG_SERIAL.println(motPos[1]);
-  DEBUG_SERIAL.println(motPos[2]);
+  motPos = Delta_IK(0, 50, -180);
+  DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
+  motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
+  motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
+  DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
   MoveMotorToGoal(1, 50, motPos[0]);
   MoveMotorToGoal(2, 50, motPos[1]);
   MoveMotorToGoal(3, 50, motPos[2]);
   WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
+  delay(500);
+  DEBUG_SERIAL.println();
+
+  motPos = Delta_IK(50, -30, -180);
+  DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
+  motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
+  motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
+  DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  MoveMotorToGoal(1, 50, motPos[0]);
+  MoveMotorToGoal(2, 50, motPos[1]);
+  MoveMotorToGoal(3, 50, motPos[2]);
+  WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
+  delay(500);
+  DEBUG_SERIAL.println();
+
+  motPos = Delta_IK(-50, -30, -180);
+  DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
+  motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
+  motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
+  DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  MoveMotorToGoal(1, 50, motPos[0]);
+  MoveMotorToGoal(2, 50, motPos[1]);
+  MoveMotorToGoal(3, 50, motPos[2]);
+  WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
+  delay(500);
+  DEBUG_SERIAL.println();
 }
 
 int ConvertDegreesToGoalPos(float deg) {
   // 30° - мертвая зона диномикселя
   deg = constrain(deg, 30, 300); // Ограничиваем входное значение, где 30° - это начальный градус слева и 300°
-  float goalPos = map(deg, 30, 330, 1023, 1);
+  float goalPos = map(deg, 330, 30, 1023, 0);
   return goalPos;
 }
 
 void WaitMotorsTakeGoalPos(int posMotor1, int posMotor2, int posMotor3) {
-  while (dxl.getPresentPosition(1) != posMotor1 && dxl.getPresentPosition(2) != posMotor2 && dxl.getPresentPosition(3) != posMotor3);
+  while (!(dxl.getPresentPosition(1) == posMotor1 && dxl.getPresentPosition(2) == posMotor2 && dxl.getPresentPosition(3) == posMotor3));
+  DEBUG_SERIAL.print("Motors performed position: "); DEBUG_SERIAL.print(dxl.getPresentPosition(1)); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(dxl.getPresentPosition(2)); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(dxl.getPresentPosition(3));
 }
 
 void MoveMotorToGoal(int motorId, int speed, int goalPos) {
@@ -124,12 +143,12 @@ void MoveMotorToGoal(int motorId, int speed, int goalPos) {
 }
 
 float* Delta_IK(float X_V, float Y_V, float Z_V) {
+  //Z_V -= OFFSET_V_IN_PLATFORM_HEIGHT; // Учитываем высоту платформы
   // Расчёт координат точки V в системах координат, повёрнутых на 120° и 240° по часовой стрелке относительно основной
   float X_V_120 = X_V * COS120 - Y_V * SIN120;
   float Y_V_120 = X_V * SIN120 + Y_V * COS120;
   float X_V_240 = X_V * COS240 - Y_V * SIN240;
   float Y_V_240 = X_V * SIN240 + Y_V * COS240;
-
   float *ik_theta = new float[3];
   ik_theta[0] = Calc_Theta(X_V, Y_V, Z_V);
   ik_theta[1] = Calc_Theta(X_V_120, Y_V_120, Z_V);
