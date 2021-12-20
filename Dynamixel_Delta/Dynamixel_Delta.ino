@@ -143,7 +143,7 @@ void MoveMotorToGoal(int motorId, int speed, int goalPos) {
 }
 
 float* Delta_IK(float X_V, float Y_V, float Z_V) {
-  //Z_V -= OFFSET_V_IN_PLATFORM_HEIGHT; // Учитываем высоту платформы
+  Z_V += OFFSET_V_IN_PLATFORM_HEIGHT; // Учитываем высоту платформы
   // Расчёт координат точки V в системах координат, повёрнутых на 120° и 240° по часовой стрелке относительно основной
   float X_V_120 = X_V * COS120 - Y_V * SIN120;
   float Y_V_120 = X_V * SIN120 + Y_V * COS120;
