@@ -30,7 +30,7 @@
 #define LED_LOW HIGH
 
 // Размеры робота в мм
-#define F_BASE_PLATFORM_DELTA 159.349 // Длина стороны верхнего неподвижного основания
+#define F_BASE_PLATFORM_DELTA 158.483 // Длина стороны верхнего неподвижного основания
 #define OQ F_BASE_PLATFORM_DELTA * SQRT3 / 6 // Радиус окружности осей шарниров
 
 #define R_L_DELTA 100 // Длина рычага
