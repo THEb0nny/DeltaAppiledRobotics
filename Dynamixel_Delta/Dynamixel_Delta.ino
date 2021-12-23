@@ -1,4 +1,6 @@
 // https://emanual.robotis.com/docs/en/dxl/ax/ax-12a/
+// https://emanual.robotis.com/docs/en/parts/controller/opencm904/
+
 // https://habr.com/ru/post/580970/
 // https://habr.com/ru/post/583190/
 // https://vk.com/id317251061
@@ -69,7 +71,10 @@ void setup() {
       }
     }
     dxl.torqueOff(i); // Отключение блокировки привода, чтобы установить режим работы!
-    dxl.setOperatingMode(i, OP_POSITION); // Установка режима работы привода в качестве шарнира
+    bool setDinamixelOperationMode = dxl.setOperatingMode(i, OP_POSITION); // Установка режима работы привода в качестве шарнира
+    if (!setDinamixelOperationMode) {
+      DEBUG_SERIAL.print("Dynamixel wgith ID "); DEBUG_SERIAL.print(i); DEBUG_SERIAL.println("mode not set!");
+    }
     delay(10);
   }
   DEBUG_SERIAL.println("Start...");
