@@ -36,7 +36,7 @@
 #define R_L_DELTA 100 // Длина рычага
 #define R_R_DELTA 212 // Длина штанги
 
-#define F_PLATFORM_DELTA 91.8 // Длина стороны подвижной платформы
+#define F_PLATFORM_DELTA 55.426 // Длина стороны подвижной платформы
 #define VM F_PLATFORM_DELTA * SQRT3 / 6 // Радиус окружности осей рычагов
 
 #define OFFSET_V_IN_PLATFORM_HEIGHT 10 // Размер высоты платформы для смещения точки V
@@ -97,7 +97,7 @@ void loop() {
   WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
   delay(500);
   DEBUG_SERIAL.println();
-
+  /*
   motPos = Delta_IK(50, -30, -180);
   DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
   motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
@@ -123,6 +123,8 @@ void loop() {
   WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
   delay(500);
   DEBUG_SERIAL.println();
+  */
+  while(1);
 }
 
 int ConvertDegreesToGoalPos(float deg) {
