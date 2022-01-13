@@ -102,7 +102,7 @@ void loop() {
   WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
   delay(500);
   DEBUG_SERIAL.println();
-  /*
+
   motPos = Delta_IK(50, -30, -180);
   DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
   motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
@@ -128,8 +128,6 @@ void loop() {
   WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
   delay(500);
   DEBUG_SERIAL.println();
-  */
-  while(1);
 }
 
 int ConvertDegreesToGoalPos(float deg) {
