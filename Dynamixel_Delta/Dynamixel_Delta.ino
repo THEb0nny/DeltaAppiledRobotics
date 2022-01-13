@@ -13,6 +13,7 @@
 #define DXL_DIR_PIN 22 // Инициализация переменной, отвечащей за номер пина, подключенного к информационному пину приводов манипулятора
 #define DXL_PROTOCOL_VERSION 1.0 // Инициализация переменной, отвечащей за протокол передачи данных от OpenCM9.04 к приводам
 #define JOINT_N 3 // Количество приводов
+#define DYNAMIXEL_GOAL_POS_ERROR 5 // Погрешность позиции для динимикселей
 
 #define EXP_BOARD_BUTTON1_PIN 16 // Пин кнопки 1 на плате расширения
 #define EXP_BOARD_BUTTON2_PIN 17 // Пин кнопки 2 на плате расширения
@@ -77,7 +78,7 @@ void setup() {
     }
     delay(10);
   }
-  DEBUG_SERIAL.println("Start...");
+  DEBUG_SERIAL.println("Start..."); DEBUG_SERIAL.println();
   delay(500);
   // Занять среднюю позицию
   for (int i = 1; i <= JOINT_N; i++) {
@@ -91,11 +92,11 @@ void setup() {
 void loop() {
   float* motPos = new float[3];
   motPos = Delta_IK(0, 50, -180);
-  DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
   motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
   motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
   motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
-  DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
   MoveMotorToGoal(1, 50, motPos[0]);
   MoveMotorToGoal(2, 50, motPos[1]);
   MoveMotorToGoal(3, 50, motPos[2]);
@@ -104,11 +105,11 @@ void loop() {
   DEBUG_SERIAL.println();
 
   motPos = Delta_IK(50, -30, -180);
-  DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
   motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
   motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
   motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
-  DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
   MoveMotorToGoal(1, 50, motPos[0]);
   MoveMotorToGoal(2, 50, motPos[1]);
   MoveMotorToGoal(3, 50, motPos[2]);
@@ -117,11 +118,11 @@ void loop() {
   DEBUG_SERIAL.println();
 
   motPos = Delta_IK(-50, -30, -180);
-  DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
   motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
   motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
   motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
-  DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
   MoveMotorToGoal(1, 50, motPos[0]);
   MoveMotorToGoal(2, 50, motPos[1]);
   MoveMotorToGoal(3, 50, motPos[2]);
@@ -137,8 +138,18 @@ int ConvertDegreesToGoalPos(float deg) {
   return goalPos;
 }
 
-void WaitMotorsTakeGoalPos(int posMotor1, int posMotor2, int posMotor3) {
-  while (!(dxl.getPresentPosition(1) == posMotor1 && dxl.getPresentPosition(2) == posMotor2 && dxl.getPresentPosition(3) == posMotor3));
+void WaitMotorsTakeGoalPos(int posMotor1, int posMotor2, int posMotor3) { 
+  while (true) {
+    //DEBUG_SERIAL.print("Motors position: "); DEBUG_SERIAL.print(dxl.getPresentPosition(1)); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(dxl.getPresentPosition(2)); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(dxl.getPresentPosition(3));
+    if ((posMotor1 - DYNAMIXEL_GOAL_POS_ERROR <= dxl.getPresentPosition(1) && dxl.getPresentPosition(1) <= posMotor1 + DYNAMIXEL_GOAL_POS_ERROR) && (posMotor2 - DYNAMIXEL_GOAL_POS_ERROR <= dxl.getPresentPosition(2) && dxl.getPresentPosition(2) <= posMotor2 + DYNAMIXEL_GOAL_POS_ERROR) && (posMotor3 - DYNAMIXEL_GOAL_POS_ERROR <= dxl.getPresentPosition(3) && dxl.getPresentPosition(3) <= posMotor3 + DYNAMIXEL_GOAL_POS_ERROR)) {
+      break;
+    }
+    //delay(500);
+  }
+  /*while (!(dxl.getPresentPosition(1) == posMotor1 && dxl.getPresentPosition(2) == posMotor2 && dxl.getPresentPosition(3) == posMotor3)) {
+    DEBUG_SERIAL.print("Motors position: "); DEBUG_SERIAL.print(dxl.getPresentPosition(1)); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(dxl.getPresentPosition(2)); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(dxl.getPresentPosition(3));
+    delay(100);
+  }*/
   DEBUG_SERIAL.print("Motors performed position: "); DEBUG_SERIAL.print(dxl.getPresentPosition(1)); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(dxl.getPresentPosition(2)); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(dxl.getPresentPosition(3));
 }
 
