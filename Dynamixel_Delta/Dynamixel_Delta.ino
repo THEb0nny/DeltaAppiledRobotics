@@ -21,6 +21,8 @@
 #define EXP_BOARD_LED2_PIN 19 // Пин светодиода 2 на плате расширения
 #define EXP_BOARD_LED3_PIN 20 // Пин светодиода 3 на плате расширения
 
+#define SOLENOID_RELAY_PIN D10
+
 // Тригонометрические константы
 #define SQRT3 sqrtf(3.0)
 #define COS120 cos(radians(120))
@@ -53,6 +55,7 @@ void setup() {
   pinMode(EXP_BOARD_LED1_PIN, OUTPUT); // Установка режима пина светодиода 1 на плате расширения
   pinMode(EXP_BOARD_LED2_PIN, OUTPUT); // Установка режима пина светодиода 2 на плате расширения
   pinMode(EXP_BOARD_LED3_PIN, OUTPUT); // Установка режима пина светодиода 3 на плате расширения
+  pinMode(SOLENOID_RELAY_PIN, OUTPUT); // Управление реле с помощью соленоида
   digitalWrite(EXP_BOARD_LED1_PIN, LED_LOW); // Выключаем светодиод 1 на плате расширения
   digitalWrite(EXP_BOARD_LED2_PIN, LED_LOW); // Выключаем светодиод 2 на плате расширения
   digitalWrite(EXP_BOARD_LED3_PIN, LED_LOW); // Выключаем светодиод 3 на плате расширения
@@ -81,12 +84,19 @@ void setup() {
   DEBUG_SERIAL.println("Start..."); DEBUG_SERIAL.println();
   delay(500);
   // Занять среднюю позицию
+  //digitalWrite(SOLENOID_RELAY_PIN, LOW);
   for (int i = 1; i <= JOINT_N; i++) {
     MoveMotorToGoal(i, 50, 410);
   }
   // Ждём, чтобы все приводы заняли позицию
   WaitMotorsTakeGoalPos(410, 410, 410);
   delay(500);
+  while (1) {
+    digitalWrite(SOLENOID_RELAY_PIN, LOW);
+    delay(2000);
+    digitalWrite(SOLENOID_RELAY_PIN, HIGH);
+    delay(2000);
+  }
 }
 
 void loop() {
