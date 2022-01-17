@@ -12,16 +12,16 @@
 
 #define DXL_DIR_PIN 22 // Инициализация переменной, отвечащей за номер пина, подключенного к информационному пину приводов манипулятора
 #define DXL_PROTOCOL_VERSION 1.0 // Инициализация переменной, отвечащей за протокол передачи данных от OpenCM9.04 к приводам
-#define JOINT_N 3 // Количество приводов
+#define JOINT_N 3 // Количество приводов дельты
 #define DYNAMIXEL_GOAL_POS_ERROR 5 // Погрешность позиции для динимикселей
 
-#define EXP_BOARD_BUTTON1_PIN 16 // Пин кнопки 1 на плате расширения
-#define EXP_BOARD_BUTTON2_PIN 17 // Пин кнопки 2 на плате расширения
-#define EXP_BOARD_LED1_PIN 18 // Пин светодиода 1 на плате расширения
-#define EXP_BOARD_LED2_PIN 19 // Пин светодиода 2 на плате расширения
-#define EXP_BOARD_LED3_PIN 20 // Пин светодиода 3 на плате расширения
+#define EXP_BOARD_BUTTON1_PIN D16 // Пин кнопки 1 на плате расширения
+#define EXP_BOARD_BUTTON2_PIN D17 // Пин кнопки 2 на плате расширения
+#define EXP_BOARD_LED1_PIN D18 // Пин светодиода 1 на плате расширения
+#define EXP_BOARD_LED2_PIN D19 // Пин светодиода 2 на плате расширения
+#define EXP_BOARD_LED3_PIN D20 // Пин светодиода 3 на плате расширения
 
-#define SOLENOID_RELAY_PIN D10
+#define SOLENOID_RELAY_PIN D10 // Пин управления реле соленоида
 
 // Тригонометрические константы
 #define SQRT3 sqrtf(3.0)
@@ -56,9 +56,18 @@ void setup() {
   pinMode(EXP_BOARD_LED2_PIN, OUTPUT); // Установка режима пина светодиода 2 на плате расширения
   pinMode(EXP_BOARD_LED3_PIN, OUTPUT); // Установка режима пина светодиода 3 на плате расширения
   pinMode(SOLENOID_RELAY_PIN, OUTPUT); // Управление реле с помощью соленоида
+  PneumaticSuctionCupState(false); // Не захватывать при старте
   digitalWrite(EXP_BOARD_LED1_PIN, LED_LOW); // Выключаем светодиод 1 на плате расширения
   digitalWrite(EXP_BOARD_LED2_PIN, LED_LOW); // Выключаем светодиод 2 на плате расширения
   digitalWrite(EXP_BOARD_LED3_PIN, LED_LOW); // Выключаем светодиод 3 на плате расширения
+  //
+  /*while (1) {
+    digitalWrite(SOLENOID_RELAY_PIN, LOW);
+    delay(2000);
+    digitalWrite(SOLENOID_RELAY_PIN, HIGH);
+    delay(2000);
+  }*/
+  //
   //while(!DEBUG_SERIAL); // Ждём, пока монитор порта не откроется
   while(digitalRead(EXP_BOARD_BUTTON1_PIN) == 0); // Ждём, пока не будет нажата кнопка 1 на плате расширения
   DEBUG_SERIAL.println("Setup...");
@@ -84,19 +93,12 @@ void setup() {
   DEBUG_SERIAL.println("Start..."); DEBUG_SERIAL.println();
   delay(500);
   // Занять среднюю позицию
-  //digitalWrite(SOLENOID_RELAY_PIN, LOW);
   for (int i = 1; i <= JOINT_N; i++) {
     MoveMotorToGoal(i, 50, 410);
   }
   // Ждём, чтобы все приводы заняли позицию
   WaitMotorsTakeGoalPos(410, 410, 410);
   delay(500);
-  while (1) {
-    digitalWrite(SOLENOID_RELAY_PIN, LOW);
-    delay(2000);
-    digitalWrite(SOLENOID_RELAY_PIN, HIGH);
-    delay(2000);
-  }
 }
 
 void loop() {
@@ -254,4 +256,10 @@ float* Delta_FK(float theta1, int theta2, int theta3) {
   float *fk_V = new float[3];
   fk_V[0] = x_V, fk_V[1] = y_V, fk_V[2] = z_V;
   return fk_V;
+}
+
+// Функция для управления пневматическим захватом
+void PneumaticSuctionCupState(bool isCapture) {
+  if (isCapture) digitalWrite(SOLENOID_RELAY_PIN, HIGH);
+  else digitalWrite(SOLENOID_RELAY_PIN, LOW);
 }
