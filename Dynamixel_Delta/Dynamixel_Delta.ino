@@ -41,7 +41,7 @@
 #define R_L_DELTA 100 // Длина рычага
 #define R_R_DELTA 212 // Длина штанги
 
-#define F_PLATFORM_DELTA 55.426 // Длина стороны подвижной платформы
+#define F_PLATFORM_DELTA 62.354 // Длина стороны подвижной платформы
 #define VM F_PLATFORM_DELTA * SQRT3 / 6 // Радиус окружности осей рычагов
 
 #define OFFSET_V_IN_PLATFORM_HEIGHT 10 // Размер высоты платформы для смещения точки V
@@ -61,12 +61,12 @@ void setup() {
   digitalWrite(EXP_BOARD_LED2_PIN, LED_LOW); // Выключаем светодиод 2 на плате расширения
   digitalWrite(EXP_BOARD_LED3_PIN, LED_LOW); // Выключаем светодиод 3 на плате расширения
   //
-  /*while (1) {
-    digitalWrite(SOLENOID_RELAY_PIN, LOW);
+  while (1) {
+    PneumaticSuctionCupState(true);
     delay(2000);
-    digitalWrite(SOLENOID_RELAY_PIN, HIGH);
+    PneumaticSuctionCupState(false);
     delay(2000);
-  }*/
+  }
   //
   //while(!DEBUG_SERIAL); // Ждём, пока монитор порта не откроется
   while(digitalRead(EXP_BOARD_BUTTON1_PIN) == 0); // Ждём, пока не будет нажата кнопка 1 на плате расширения
