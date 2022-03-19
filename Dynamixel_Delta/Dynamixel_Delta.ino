@@ -65,7 +65,7 @@ void setup() {
   DEBUG_SERIAL.println("Setup...");
   dxl.begin(1000000); // Установка скорости обмена данными по последовательному порту манипулятора
   dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION); // Выбор протокола обмена данными
-  for (int i = 1; i <= JOINT_N; i++) { // Цикл для перебора всех приводов
+  for (byte i = 1; i <= JOINT_N; i++) { // Цикл для перебора всех приводов
     while (true) {
       if(dxl.ping(i) == true) { // Проверка отвечает ли мотор
         DEBUG_SERIAL.print("Dynamixel with ID "); DEBUG_SERIAL.print(i); DEBUG_SERIAL.print(" found, model "); DEBUG_SERIAL.print(dxl.getModelNumber(i)); DEBUG_SERIAL.println(".");
@@ -85,7 +85,7 @@ void setup() {
   DEBUG_SERIAL.println("Start..."); DEBUG_SERIAL.println();
   delay(500);
   // Занять среднюю позицию
-  for (int i = 1; i <= JOINT_N; i++) {
+  for (byte i = 1; i <= JOINT_N; i++) {
     MoveMotorToGoal(i, 50, 410);
   }
   // Ждём, чтобы все приводы заняли позицию
