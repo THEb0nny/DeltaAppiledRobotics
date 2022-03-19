@@ -60,14 +60,6 @@ void setup() {
   digitalWrite(EXP_BOARD_LED1_PIN, LED_LOW); // Выключаем светодиод 1 на плате расширения
   digitalWrite(EXP_BOARD_LED2_PIN, LED_LOW); // Выключаем светодиод 2 на плате расширения
   digitalWrite(EXP_BOARD_LED3_PIN, LED_LOW); // Выключаем светодиод 3 на плате расширения
-  //
-  while (1) {
-    PneumaticSuctionCupState(true);
-    delay(2000);
-    PneumaticSuctionCupState(false);
-    delay(2000);
-  }
-  //
   //while(!DEBUG_SERIAL); // Ждём, пока монитор порта не откроется
   while(digitalRead(EXP_BOARD_BUTTON1_PIN) == 0); // Ждём, пока не будет нажата кнопка 1 на плате расширения
   DEBUG_SERIAL.println("Setup...");
@@ -101,9 +93,13 @@ void setup() {
   delay(500);
 }
 
+bool state = false;
+
 void loop() {
   float* motPos = new float[3];
-  motPos = Delta_IK(0, 50, -180);
+  
+  //// 1
+  motPos = Delta_IK(0, 50, -135);
   DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
   motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
   motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
@@ -116,7 +112,7 @@ void loop() {
   delay(500);
   DEBUG_SERIAL.println();
 
-  motPos = Delta_IK(50, -30, -180);
+  motPos = Delta_IK(0, 50, -155);
   DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
   motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
   motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
@@ -129,7 +125,102 @@ void loop() {
   delay(500);
   DEBUG_SERIAL.println();
 
-  motPos = Delta_IK(-50, -30, -180);
+  if (!state) PneumaticSuctionCupState(true);
+  else PneumaticSuctionCupState(false);
+  state = !state;
+  delay(1000);
+
+  motPos = Delta_IK(0, 50, -135);
+  DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
+  motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
+  motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
+  DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  MoveMotorToGoal(1, 50, motPos[0]);
+  MoveMotorToGoal(2, 50, motPos[1]);
+  MoveMotorToGoal(3, 50, motPos[2]);
+  WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
+  delay(500);
+  DEBUG_SERIAL.println();
+
+  //// 2
+  motPos = Delta_IK(50, -30, -135);
+  DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
+  motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
+  motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
+  DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  MoveMotorToGoal(1, 50, motPos[0]);
+  MoveMotorToGoal(2, 50, motPos[1]);
+  MoveMotorToGoal(3, 50, motPos[2]);
+  WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
+  delay(500);
+  DEBUG_SERIAL.println();
+
+  motPos = Delta_IK(50, -30, -155);
+  DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
+  motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
+  motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
+  DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  MoveMotorToGoal(1, 50, motPos[0]);
+  MoveMotorToGoal(2, 50, motPos[1]);
+  MoveMotorToGoal(3, 50, motPos[2]);
+  WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
+  delay(500);
+  DEBUG_SERIAL.println();
+
+  if (!state) PneumaticSuctionCupState(true);
+  else PneumaticSuctionCupState(false);
+  state = !state;
+  delay(1000);
+
+  motPos = Delta_IK(50, -30, -135);
+  DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
+  motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
+  motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
+  DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  MoveMotorToGoal(1, 50, motPos[0]);
+  MoveMotorToGoal(2, 50, motPos[1]);
+  MoveMotorToGoal(3, 50, motPos[2]);
+  WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
+  delay(500);
+  DEBUG_SERIAL.println();
+
+  //// 3
+  motPos = Delta_IK(-50, -30, -135);
+  DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
+  motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
+  motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
+  DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  MoveMotorToGoal(1, 50, motPos[0]);
+  MoveMotorToGoal(2, 50, motPos[1]);
+  MoveMotorToGoal(3, 50, motPos[2]);
+  WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
+  delay(500);
+  DEBUG_SERIAL.println();
+
+  motPos = Delta_IK(-50, -30, -155);
+  DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
+  motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
+  motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
+  DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
+  MoveMotorToGoal(1, 50, motPos[0]);
+  MoveMotorToGoal(2, 50, motPos[1]);
+  MoveMotorToGoal(3, 50, motPos[2]);
+  WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
+  delay(500);
+  DEBUG_SERIAL.println();
+
+  if (!state) PneumaticSuctionCupState(true);
+  else PneumaticSuctionCupState(false);
+  state = !state;
+  delay(1000);
+
+  motPos = Delta_IK(-50, -30, -135);
   DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
   motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
   motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
