@@ -64,11 +64,11 @@ void setup() {
   digitalWrite(EXP_BOARD_LED3_PIN, LED_LOW); // Выключаем светодиод 3 на плате расширения
   //while(!DEBUG_SERIAL); // Ждём, пока монитор порта не откроется
   while(true) {
-    if (digitalRead(EXP_BOARD_BUTTON1_PIN) == 0) { // Автоматический режим демонтрации
+    if (digitalRead(EXP_BOARD_BUTTON1_PIN) == 1) { // Автоматический режим демонтрации
       workMode = 1;
       break; // Кнопка 1 на плате расширения
     }
-    if (digitalRead(EXP_BOARD_BUTTON2_PIN) == 0) { // Режим управления
+    if (digitalRead(EXP_BOARD_BUTTON2_PIN) == 1) { // Режим управления
       workMode = 2;
       break; // Кнопка 2 на плате расширения
     }
@@ -94,13 +94,8 @@ void setup() {
     delay(10);
   }
   DEBUG_SERIAL.println("Start..."); DEBUG_SERIAL.println();
-  delay(500);
   // Занять среднюю позицию
-  for (byte i = 1; i <= JOINT_N; i++) {
-    MoveMotorToGoal(i, 50, 410);
-  }
-  // Ждём, чтобы все приводы заняли позицию
-  WaitMotorsTakeGoalPos(410, 410, 410);
+  DeltaMove(0, 0, -135);
   delay(500);
 }
 
@@ -108,142 +103,79 @@ bool state = false; // Состояние для автоматического 
 
 void loop() {
   if (workMode == 1) {
-    float* motPos = new float[3];
+    //float* servosPos = new float[3];
     //// 1
-    motPos = Delta_IK(0, 50, -135);
-    DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
-    motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
+    //servosPos = Delta_IK(0, 50, -135);
+    //DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(servosPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(servosPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(servosPos[2]);
+    /*motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
     motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
     motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
-    DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
-    MoveMotorToGoal(1, 50, motPos[0]);
+    DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);*/
+    //MoveServoToDegPos(1, servosPos[0]);
+    //MoveServoToDegPos(2, servosPos[1]);
+    //MoveServoToDegPos(3, servosPos[2]);
+    /*MoveMotorToGoal(1, 50, motPos[0]);
     MoveMotorToGoal(2, 50, motPos[1]);
-    MoveMotorToGoal(3, 50, motPos[2]);
-    WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
-    delay(500);
-    DEBUG_SERIAL.println();
+    MoveMotorToGoal(3, 50, motPos[2]);*/
+    //WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
+    //delay(500);
+    //DEBUG_SERIAL.println();
+    
   
-    motPos = Delta_IK(0, 50, -155);
-    DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
-    motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
-    motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
-    motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
-    DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
-    MoveMotorToGoal(1, 50, motPos[0]);
-    MoveMotorToGoal(2, 50, motPos[1]);
-    MoveMotorToGoal(3, 50, motPos[2]);
-    WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
-    delay(500);
-    DEBUG_SERIAL.println();
-  
+    /*
     if (!state) PneumaticSuctionCupState(true);
     else PneumaticSuctionCupState(false);
     state = !state;
     delay(1000);
-  
-    motPos = Delta_IK(0, 50, -135);
-    DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
-    motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
-    motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
-    motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
-    DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
-    MoveMotorToGoal(1, 50, motPos[0]);
-    MoveMotorToGoal(2, 50, motPos[1]);
-    MoveMotorToGoal(3, 50, motPos[2]);
-    WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
-    delay(500);
-    DEBUG_SERIAL.println();
-  
-    //// 2
-    motPos = Delta_IK(50, -30, -135);
-    DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
-    motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
-    motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
-    motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
-    DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
-    MoveMotorToGoal(1, 50, motPos[0]);
-    MoveMotorToGoal(2, 50, motPos[1]);
-    MoveMotorToGoal(3, 50, motPos[2]);
-    WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
-    delay(500);
-    DEBUG_SERIAL.println();
-  
-    motPos = Delta_IK(50, -30, -155);
-    DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
-    motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
-    motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
-    motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
-    DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
-    MoveMotorToGoal(1, 50, motPos[0]);
-    MoveMotorToGoal(2, 50, motPos[1]);
-    MoveMotorToGoal(3, 50, motPos[2]);
-    WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
-    delay(500);
-    DEBUG_SERIAL.println();
-  
-    if (!state) PneumaticSuctionCupState(true);
-    else PneumaticSuctionCupState(false);
-    state = !state;
-    delay(1000);
-  
-    motPos = Delta_IK(50, -30, -135);
-    DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
-    motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
-    motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
-    motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
-    DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
-    MoveMotorToGoal(1, 50, motPos[0]);
-    MoveMotorToGoal(2, 50, motPos[1]);
-    MoveMotorToGoal(3, 50, motPos[2]);
-    WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
-    delay(500);
-    DEBUG_SERIAL.println();
-  
-    //// 3
-    motPos = Delta_IK(-50, -30, -135);
-    DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
-    motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
-    motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
-    motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
-    DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
-    MoveMotorToGoal(1, 50, motPos[0]);
-    MoveMotorToGoal(2, 50, motPos[1]);
-    MoveMotorToGoal(3, 50, motPos[2]);
-    WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
-    delay(500);
-    DEBUG_SERIAL.println();
-  
-    motPos = Delta_IK(-50, -30, -155);
-    DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
-    motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
-    motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
-    motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
-    DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
-    MoveMotorToGoal(1, 50, motPos[0]);
-    MoveMotorToGoal(2, 50, motPos[1]);
-    MoveMotorToGoal(3, 50, motPos[2]);
-    WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
-    delay(500);
-    DEBUG_SERIAL.println();
-  
-    if (!state) PneumaticSuctionCupState(true);
-    else PneumaticSuctionCupState(false);
-    state = !state;
-    delay(1000);
-  
-    motPos = Delta_IK(-50, -30, -135);
-    DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
-    motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
-    motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
-    motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
-    DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);
-    MoveMotorToGoal(1, 50, motPos[0]);
-    MoveMotorToGoal(2, 50, motPos[1]);
-    MoveMotorToGoal(3, 50, motPos[2]);
-    WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
-    delay(500);
-    DEBUG_SERIAL.println();
+    */
   }
+}
+
+void DeltaMove(int x, int y, int z) {
+  float* servosPos = new float[3];
+  servosPos = Delta_IK(x, y, z);
+  DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(servosPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(servosPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(servosPos[2]);
+  MoveServoToDegPos(1, servosPos[0]);
+  MoveServoToDegPos(2, servosPos[1]);
+  MoveServoToDegPos(3, servosPos[2]);
+}
+
+// Установить скорость сервоприводу
+void SetServoSpeed(byte servoId, int speed) {
+  dxl.setGoalVelocity(servoId, speed); // Задание целевой скорости
+}
+
+// Установить скорость сервоприводам
+void SetServosSpeed(float *servosSpeed) {
+  for (byte i = 0; i < JOINT_N; i++) {
+    dxl.setGoalVelocity(i + 1, servosSpeed[i]); // Задание целевой скорости
+  }
+}
+
+// Сервоприводу занять позицию
+void MoveServoToDegPos(byte servoId, float posDeg) {
+  dxl.setGoalPosition(servoId, posDeg, UNIT_DEGREE); // Задание целевого положения
+}
+
+// Сервоприводам занять позиции
+void MoveServosToDegPos(float *servosPos) {
+  for (byte i = 0; i < JOINT_N; i++) {
+    MoveServoToDegPos(i + 1, servosPos[i]);
+  }
+}
+
+// Получить от серво его угол
+int GetServoDegPos(byte servoId) {
+  return dxl.getPresentPosition(servoId, UNIT_DEGREE);
+}
+
+// Получить значения углов с сервоприводов
+int* GetServosDegPos() {
+  int *degPos = new int[JOINT_N];
+  for (int i = 0; i <= JOINT_N; i++) {
+    degPos[i] = GetServoDegPos(i + 1);
+  }
+  return degPos;
 }
 
 int ConvertDegreesToGoalPos(float deg) {
@@ -261,10 +193,6 @@ void WaitMotorsTakeGoalPos(int posMotor1, int posMotor2, int posMotor3) {
     }
     //delay(500);
   }
-  /*while (!(dxl.getPresentPosition(1) == posMotor1 && dxl.getPresentPosition(2) == posMotor2 && dxl.getPresentPosition(3) == posMotor3)) {
-    DEBUG_SERIAL.print("Motors position: "); DEBUG_SERIAL.print(dxl.getPresentPosition(1)); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(dxl.getPresentPosition(2)); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(dxl.getPresentPosition(3));
-    delay(100);
-  }*/
   DEBUG_SERIAL.print("Motors performed position: "); DEBUG_SERIAL.print(dxl.getPresentPosition(1)); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(dxl.getPresentPosition(2)); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(dxl.getPresentPosition(3));
 }
 
