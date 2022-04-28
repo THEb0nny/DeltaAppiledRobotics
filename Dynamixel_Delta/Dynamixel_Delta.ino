@@ -7,6 +7,8 @@
 
 #include <Dynamixel2Arduino.h>  // Подключение библиотеки Dynamixel
 
+#define DEBUG_LEVEL 1 // Уровень дебага
+
 #define DEBUG_SERIAL Serial // Установка константы, отвечающей за последовательный порт, подключаемый к компьютеру
 #define DXL_SERIAL Serial3 // OpenCM9.04 EXP Board's DXL port Serial. (To use the DXL port on the OpenCM 9.04 board, you must use Serial1 for Serial. And because of the OpenCM 9.04 driver code, you must call Serial1.setDxlMode(true); before dxl.begin();.)
 
@@ -58,19 +60,19 @@ void setup() {
   pinMode(EXP_BOARD_LED2_PIN, OUTPUT); // Установка режима пина светодиода 2 на плате расширения
   pinMode(EXP_BOARD_LED3_PIN, OUTPUT); // Установка режима пина светодиода 3 на плате расширения
   pinMode(SOLENOID_RELAY_PIN, OUTPUT); // Управление реле с помощью соленоида
-  PneumaticSuctionCupState(false); // Не захватывать при старте
+  PneumaticSuctionCupState(false, 0); // Не захватывать при старте
   digitalWrite(EXP_BOARD_LED1_PIN, LED_LOW); // Выключаем светодиод 1 на плате расширения
   digitalWrite(EXP_BOARD_LED2_PIN, LED_LOW); // Выключаем светодиод 2 на плате расширения
   digitalWrite(EXP_BOARD_LED3_PIN, LED_LOW); // Выключаем светодиод 3 на плате расширения
   //while(!DEBUG_SERIAL); // Ждём, пока монитор порта не откроется
   while(true) {
-    if (digitalRead(EXP_BOARD_BUTTON1_PIN) == 1) { // Автоматический режим демонтрации
+    if (digitalRead(EXP_BOARD_BUTTON1_PIN) == 1) { // Автоматический режим демонтрации, кнопка 1 на плате расширения
       workMode = 1;
-      break; // Кнопка 1 на плате расширения
+      break;
     }
-    if (digitalRead(EXP_BOARD_BUTTON2_PIN) == 1) { // Режим управления
+    if (digitalRead(EXP_BOARD_BUTTON2_PIN) == 1) { // Режим управления, Кнопка 2 на плате расширения
       workMode = 2;
-      break; // Кнопка 2 на плате расширения
+      break;
     }
   }
   DEBUG_SERIAL.println("Setup...");
@@ -86,58 +88,105 @@ void setup() {
         delay(500);
       }
     }
-    dxl.torqueOff(i); // Отключение блокировки привода, чтобы установить режим работы!
-    bool setDinamixelOperationMode = dxl.setOperatingMode(i, OP_POSITION); // Установка режима работы привода в качестве шарнира
-    if (!setDinamixelOperationMode) {
-      DEBUG_SERIAL.print("Dynamixel wgith ID "); DEBUG_SERIAL.print(i); DEBUG_SERIAL.println("mode not set!");
+    while (true) { // Установить режим работы
+      dxl.torqueOff(i); // Отключение блокировки привода, чтобы установить режим работы!
+      bool setDinamixelOperationMode = dxl.setOperatingMode(i, OP_POSITION); // Установка режима работы привода в качестве шарнира
+      if (!setDinamixelOperationMode) { // Если режим мотора не установился
+        DEBUG_SERIAL.print("Dynamixel with ID "); DEBUG_SERIAL.print(i); DEBUG_SERIAL.println(" mode not set!");
+      } else break; // Режим установился, можно выйти из цикла
+      delay(10);
     }
-    delay(10);
   }
   DEBUG_SERIAL.println("Start..."); DEBUG_SERIAL.println();
-  // Занять среднюю позицию
-  DeltaMove(0, 0, -135);
-  delay(500);
+  SetAllServosSpeed(50); // Установить всем сервоприводам скорость
+  DeltaMoveToPos(0, 0, -135, true); // Занять начальную позицию
 }
 
-bool state = false; // Состояние для автоматического режима демонстрации
 
 void loop() {
   if (workMode == 1) {
-    //float* servosPos = new float[3];
-    //// 1
-    //servosPos = Delta_IK(0, 50, -135);
-    //DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(servosPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(servosPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(servosPos[2]);
-    /*motPos[0] = ConvertDegreesToGoalPos(motPos[0]);
-    motPos[1] = ConvertDegreesToGoalPos(motPos[1]);
-    motPos[2] = ConvertDegreesToGoalPos(motPos[2]);
-    DEBUG_SERIAL.print("NeedGoalPos: "); DEBUG_SERIAL.print(motPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(motPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(motPos[2]);*/
-    //MoveServoToDegPos(1, servosPos[0]);
-    //MoveServoToDegPos(2, servosPos[1]);
-    //MoveServoToDegPos(3, servosPos[2]);
-    /*MoveMotorToGoal(1, 50, motPos[0]);
-    MoveMotorToGoal(2, 50, motPos[1]);
-    MoveMotorToGoal(3, 50, motPos[2]);*/
-    //WaitMotorsTakeGoalPos(motPos[0], motPos[1], motPos[2]);
-    //delay(500);
-    //DEBUG_SERIAL.println();
-    
+    bool suctionCupState = false; // Состояние для автоматического режима демонстрации
+    byte speed = 40; // Скорость диномикселей
+    while (true) {
+      SetAllServosSpeed(speed);
+      //// 1 pos
+      DeltaMoveToPos(0, 45, -135, true); // Занять начальную позицию
+      if (!suctionCupState) PneumaticSuctionCupState(true, 1000); // Захватить, если присоска не работала
+      else PneumaticSuctionCupState(false, 1000); // Отпустить, если присоска до этого захватила
+      suctionCupState = !suctionCupState; // Поменять состояние пневматического захвата
   
-    /*
-    if (!state) PneumaticSuctionCupState(true);
-    else PneumaticSuctionCupState(false);
-    state = !state;
-    delay(1000);
-    */
+      //// 2 pos
+      DeltaMoveToPos(-45, -45, -135, true); // Занять начальную позицию
+      if (!suctionCupState) PneumaticSuctionCupState(true, 1000); // Захватить, если присоска не работала
+      else PneumaticSuctionCupState(false, 1000); // Отпустить, если присоска до этого захватила
+      suctionCupState = !suctionCupState; // Поменять состояние пневматического захвата
+  
+      //// 3 pos
+      DeltaMoveToPos(45, -45, -135, true); // Занять начальную позицию
+      if (!suctionCupState) PneumaticSuctionCupState(true, 1000); // Захватить, если присоска не работала
+      else PneumaticSuctionCupState(false, 1000); // Отпустить, если присоска до этого захватила
+      suctionCupState = !suctionCupState; // Поменять состояние пневматического захвата
+      
+      speed += 5; // Увеличиваем скорость после одного шага выполнения
+      if (speed >= 70) speed = 40; // Сбросить скорость
+    }
+  } else if (workMode == 2) {
+    float x = 0, y = 0, z = 0;
+    while (true) {
+      if (Serial.available() > 2) {
+        // Встроенная функция readStringUntil будет читать все данные, пришедшие в UART до специального символа — '\n' (перенос строки).
+        // Он появляется в паре с '\r' (возврат каретки) при передаче данных функцией Serial.println().
+        // Эти символы удобно передавать для разделения команд, но не очень удобно обрабатывать. Удаляем их функцией trim().
+        String command = Serial.readStringUntil('\n');
+        command.trim();
+        command.replace(" ", ""); // Убрать возможные пробелы между символами
+        byte strIndex = command.length(); // Переменая для хронения индекса вхождения цифры в входной строке
+        // Поиск первого вхождения цифры от 0 по 9 в подстроку
+        for (byte i = 0; i < 10; i++) {
+          byte index = command.indexOf(String(i));
+          if (index < strIndex && index != 255) strIndex = index;
+        }
+        String incoming = command.substring(0, strIndex);
+        String valueStr = command.substring(strIndex, command.length());
+        float value = valueStr.toFloat();
+        if (incoming == "x") {
+          x = value;
+        } else if (incoming == "y") {
+          y = value;
+        } else if (incoming == "z") {
+          z = value;
+        } else if (incoming == "s") {
+          SetAllServosSpeed(value);
+        } else if (incoming == "sc") {
+          if (value == 1) PneumaticSuctionCupState(true, 0);
+          else if (value == 0) PneumaticSuctionCupState(false, 0);
+        }
+        if (incoming != "sc") DeltaMoveToPos(x, y, z, true); // Занять позицию, если это была не команда управления присоской
+      }
+    }
   }
 }
 
-void DeltaMove(int x, int y, int z) {
-  float* servosPos = new float[3];
-  servosPos = Delta_IK(x, y, z);
-  DEBUG_SERIAL.print("NeedMotorPos: "); DEBUG_SERIAL.print(servosPos[0]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(servosPos[1]); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(servosPos[2]);
-  MoveServoToDegPos(1, servosPos[0]);
-  MoveServoToDegPos(2, servosPos[1]);
-  MoveServoToDegPos(3, servosPos[2]);
+// Команда на перемещение
+void DeltaMoveToPos(float x, float y, float z, bool waitPerformedPos) {
+  x = constrain(x, -300, 300); // Ограничения по x
+  y = constrain(y, -300, 300); // Ограничения по y
+  z = constrain(z, -200, -280); // Ограничения по z
+  float* servosPos = Delta_IK(x, y, z);
+  DEBUG_SERIAL.print("NeedMotDeg: ");
+  for (byte i = 0; i < JOINT_N; i++) {
+    DEBUG_SERIAL.print(servosPos[i]);
+    if (i < JOINT_N) DEBUG_SERIAL.print(", ");
+    else DEBUG_SERIAL.println();
+  }
+  DEBUG_SERIAL.print("ServoMotPos: ");
+  for (byte i = 0; i < JOINT_N; i++) {
+    servosPos[i] = ConvertDegreesToGoalPos(servosPos[i]);
+    DEBUG_SERIAL.print(servosPos[i]);
+    if (i < JOINT_N) DEBUG_SERIAL.print(", ");
+    else DEBUG_SERIAL.println();
+  }
+  MoveServosToPos(servosPos, waitPerformedPos);
 }
 
 // Установить скорость сервоприводу
@@ -145,60 +194,71 @@ void SetServoSpeed(byte servoId, int speed) {
   dxl.setGoalVelocity(servoId, speed); // Задание целевой скорости
 }
 
-// Установить скорость сервоприводам
-void SetServosSpeed(float *servosSpeed) {
+// Установить скорость всем сервоприводам
+void SetAllServosSpeed(int speed) {
   for (byte i = 0; i < JOINT_N; i++) {
-    dxl.setGoalVelocity(i + 1, servosSpeed[i]); // Задание целевой скорости
+    dxl.setGoalVelocity(i + 1, speed); // Задание целевой скорости
   }
 }
 
 // Сервоприводу занять позицию
-void MoveServoToDegPos(byte servoId, float posDeg) {
-  dxl.setGoalPosition(servoId, posDeg, UNIT_DEGREE); // Задание целевого положения
+void MoveServoToPos(byte servoId, int pos) {
+  dxl.setGoalPosition(servoId, pos); // Задание целевого положения
 }
 
 // Сервоприводам занять позиции
-void MoveServosToDegPos(float *servosPos) {
+void MoveServosToPos(float *servosPos, bool waitPerformedPos) {
   for (byte i = 0; i < JOINT_N; i++) {
-    MoveServoToDegPos(i + 1, servosPos[i]);
+    dxl.setGoalPosition(i + 1, servosPos[i]); // Задание целевого положения
   }
+  if (waitPerformedPos) WaitMotorsTakeGoalPos(servosPos);
 }
 
 // Получить от серво его угол
-int GetServoDegPos(byte servoId) {
-  return dxl.getPresentPosition(servoId, UNIT_DEGREE);
+int GetServoPos(byte servoId) {
+  return dxl.getPresentPosition(servoId);
 }
 
 // Получить значения углов с сервоприводов
-int* GetServosDegPos() {
-  int *degPos = new int[JOINT_N];
-  for (int i = 0; i <= JOINT_N; i++) {
-    degPos[i] = GetServoDegPos(i + 1);
+int* GetServosPos() {
+  int *pos = new int[JOINT_N];
+  for (byte i = 0; i < JOINT_N; i++) {
+    pos[i] = GetServoPos(i + 1);
   }
-  return degPos;
+  return pos;
 }
 
-int ConvertDegreesToGoalPos(float deg) {
-  // 30° - мертвая зона диномикселя
-  deg = constrain(deg, 30, 300); // Ограничиваем входное значение, где 30° - это начальный градус слева и 300°
-  float goalPos = map(deg, 330, 30, 1023, 0);
+int ConvertDegreesToGoalPos(float degPos) {
+  // 30, 270 - мертвые зоны диномикселя
+  degPos = constrain(degPos, 30, 300); // Ограничиваем входное значение, где 30° - это начальный градус слева и 300°
+  float goalPos = map(degPos, 330, 30, 1023, 0);
   return goalPos;
 }
 
-void WaitMotorsTakeGoalPos(int posMotor1, int posMotor2, int posMotor3) { 
+// Ждать пока сервомоторы не займут позиции
+void WaitMotorsTakeGoalPos(float *waitServosPos) { 
+  int* servosPos = new int[JOINT_N];
   while (true) {
-    //DEBUG_SERIAL.print("Motors position: "); DEBUG_SERIAL.print(dxl.getPresentPosition(1)); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(dxl.getPresentPosition(2)); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(dxl.getPresentPosition(3));
-    if ((posMotor1 - DYNAMIXEL_GOAL_POS_ERROR <= dxl.getPresentPosition(1) && dxl.getPresentPosition(1) <= posMotor1 + DYNAMIXEL_GOAL_POS_ERROR) && (posMotor2 - DYNAMIXEL_GOAL_POS_ERROR <= dxl.getPresentPosition(2) && dxl.getPresentPosition(2) <= posMotor2 + DYNAMIXEL_GOAL_POS_ERROR) && (posMotor3 - DYNAMIXEL_GOAL_POS_ERROR <= dxl.getPresentPosition(3) && dxl.getPresentPosition(3) <= posMotor3 + DYNAMIXEL_GOAL_POS_ERROR)) {
-      break;
+    servosPos = GetServosPos();
+    DEBUG_SERIAL.print("Current servos position: ");
+    for (byte i = 0; i < JOINT_N; i++) {
+      DEBUG_SERIAL.print(servosPos[i + 1]);
+      if (i < JOINT_N) DEBUG_SERIAL.print(", ");
+      else DEBUG_SERIAL.println();
     }
-    //delay(500);
+    bool servosIsPerformed[JOINT_N];
+    for (byte i = 0; i < JOINT_N; i++) { // Проверяем условие и записываем в массив для каждого отдельного серво
+      servosIsPerformed[i + 1] = waitServosPos[i] - DYNAMIXEL_GOAL_POS_ERROR <= servosPos[i] && servosPos[i] <= waitServosPos[i] + DYNAMIXEL_GOAL_POS_ERROR;
+    }
+    if (servosIsPerformed[0] && servosIsPerformed[1] && servosIsPerformed[2]) break; // Если все условия выполнились, то выйти из цикла
+    delay(10);
   }
   DEBUG_SERIAL.print("Motors performed position: "); DEBUG_SERIAL.print(dxl.getPresentPosition(1)); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print(dxl.getPresentPosition(2)); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.println(dxl.getPresentPosition(3));
-}
-
-void MoveMotorToGoal(int motorId, int speed, int goalPos) {
-  dxl.setGoalVelocity(motorId, speed); // Задание целевой скорости
-  dxl.setGoalPosition(motorId, goalPos); // Задание целевого положения
+  for (byte i = 0; i < JOINT_N; i++) {
+    DEBUG_SERIAL.print(servosPos[i + 1]);
+    if (i < JOINT_N) DEBUG_SERIAL.print(", ");
+    else DEBUG_SERIAL.println();
+  }
 }
 
 float* Delta_IK(float X_V, float Y_V, float Z_V) {
@@ -290,7 +350,8 @@ float* Delta_FK(float theta1, int theta2, int theta3) {
 }
 
 // Функция для управления пневматическим захватом
-void PneumaticSuctionCupState(bool isCapture) {
+void PneumaticSuctionCupState(bool isCapture, int delayTime) {
   if (isCapture) digitalWrite(SOLENOID_RELAY_PIN, HIGH);
   else digitalWrite(SOLENOID_RELAY_PIN, LOW);
+  delay(delayTime);
 }
