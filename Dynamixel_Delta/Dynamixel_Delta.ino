@@ -136,7 +136,13 @@ void loop() {
     }
   } else if (workMode == 2) {
     int* servosPos = GetServosPos();
-    int x = servosPos[0], y = servosPos[1], z = servosPos[2];
+    int x = 0, y = 0, z = 0;
+    /*DEBUG_SERIAL.println("Current servos position: ");
+    for (byte i = 0; i < JOINT_N; i++) {
+      DEBUG_SERIAL.print(servosDegPos[i]);
+      if (i < JOINT_N - 1) DEBUG_SERIAL.print(", ");
+      else DEBUG_SERIAL.println();
+    }*/
     while (true) {
       if (Serial.available() > 2) {
         // Встроенная функция readStringUntil будет читать все данные, пришедшие в UART до специального символа — '\n' (перенос строки).
@@ -153,20 +159,25 @@ void loop() {
         }
         String incoming = command.substring(0, strIndex);
         String valueStr = command.substring(strIndex, command.length());
-        float value = valueStr.toFloat();
+        int value = valueStr.toInt();
         if (incoming == "x") {
           x = value;
+          DEBUG_SERIAL.print("x"); DEBUG_SERIAL.println(x);
         } else if (incoming == "y") {
           y = value;
+          DEBUG_SERIAL.print("y"); DEBUG_SERIAL.println(y);
         } else if (incoming == "z") {
           z = value;
+          DEBUG_SERIAL.print("z"); DEBUG_SERIAL.println(z);
         } else if (incoming == "s") {
           SetAllServosSpeed(value);
+          DEBUG_SERIAL.print("s"); DEBUG_SERIAL.println(value);
         } else if (incoming == "sc") {
           if (value == 1) PneumaticSuctionCupState(true, 0);
           else if (value == 0) PneumaticSuctionCupState(false, 0);
+          DEBUG_SERIAL.print("sc"); DEBUG_SERIAL.println(value);
         }
-        DEBUG_SERIAL.print(incoming); DEBUG_SERIAL.println(value);
+        
         if (incoming != "sc") DeltaMoveToPos(x, y, z, false); // Занять позицию, если это была не команда управления присоской
       }
     }
