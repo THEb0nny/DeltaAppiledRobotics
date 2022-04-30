@@ -6,6 +6,7 @@
 // https://vk.com/id317251061
 
 #include <Dynamixel2Arduino.h>  // Подключение библиотеки Dynamixel
+#include "GyverTimer.h"
 
 #define DEBUG_LEVEL 1 // Уровень дебага
 
@@ -16,7 +17,7 @@
 #define DXL_PROTOCOL_VERSION 1.0 // Инициализация переменной, отвечащей за протокол передачи данных от OpenCM9.04 к приводам
 #define JOINT_N 3 // Количество приводов дельты
 #define DYNAMIXEL_GOAL_POS_ERROR 3 // Погрешность позиции для динимикселей
-#define MAX_TIME_PERFORMED_POS // Максимальное время для занятия ошибка, защита
+#define MAX_TIME_PERFORMED_POS 4000 // Максимальное время для занятия ошибка, защита
 
 #define EXP_BOARD_BUTTON1_PIN D16 // Пин кнопки 1 на плате расширения
 #define EXP_BOARD_BUTTON2_PIN D17 // Пин кнопки 2 на плате расширения
@@ -52,6 +53,7 @@
 #define MIN_Z -123 // Минимальная высота работы
 
 Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN); // Инициализация указателя на команды из библиотеки Dynamixel
+GTimer servosWorksMaxTimeTimer(MS); // Инициализация таймера защиты максимального времени цикла ожидания занятия позиции сервопривода
 
 byte workMode = 1; // Режим управления
 
@@ -69,7 +71,6 @@ void setup() {
   digitalWrite(EXP_BOARD_LED3_PIN, LED_LOW); // Выключаем светодиод 3 на плате расширения
   dxl.begin(1000000); // Установка скорости обмена данными по последовательному порту манипулятора
   dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION); // Выбор протокола обмена данными
-  //while(!DEBUG_SERIAL); // Ждём, пока монитор порта не откроется
   DEBUG_SERIAL.println("Wait press Btn1 or Btn2...");
   while(true) {
     if (digitalRead(EXP_BOARD_BUTTON1_PIN) == 1) { // Автоматический режим демонтрации, кнопка 1 на плате расширения
@@ -135,14 +136,16 @@ void loop() {
       //if (speed >= 70) speed = 40; // Сбросить скорость
     }
   } else if (workMode == 2) {
-    int* servosPos = GetServosPos();
-    int x = 0, y = 0, z = 0;
-    /*DEBUG_SERIAL.println("Current servos position: ");
+    while(!DEBUG_SERIAL); // Ждём, пока монитор порта не откроется
+    float* servosPos = Delta_FK(GetServoPos(1), GetServoPos(2), GetServoPos(3));
+    int x = servosPos[0], y = servosPos[1], z = servosPos[2];
+    DEBUG_SERIAL.println("Current servos position: ");
     for (byte i = 0; i < JOINT_N; i++) {
-      DEBUG_SERIAL.print(servosDegPos[i]);
+      DEBUG_SERIAL.print(servosPos[i]);
       if (i < JOINT_N - 1) DEBUG_SERIAL.print(", ");
       else DEBUG_SERIAL.println();
-    }*/
+    }
+    DEBUG_SERIAL.print("x: "); DEBUG_SERIAL.print(x); DEBUG_SERIAL.print(" y: "); DEBUG_SERIAL.print(y); DEBUG_SERIAL.print(" z: "); DEBUG_SERIAL.println(z);
     while (true) {
       if (Serial.available() > 2) {
         // Встроенная функция readStringUntil будет читать все данные, пришедшие в UART до специального символа — '\n' (перенос строки).
@@ -229,7 +232,7 @@ void MoveServosToPos(int *servosPos, bool waitPerformedPos) {
   for (byte i = 0; i < JOINT_N; i++) {
     dxl.setGoalPosition(i + 1, servosPos[i]); // Задание целевого положения
   }
-  if (waitPerformedPos) WaitMotorsTakeGoalPos(servosPos);
+  if (waitPerformedPos) WaitServosTakeGoalPos(servosPos);
 }
 
 // Получить от серво его угол
@@ -255,9 +258,10 @@ int ConvertDegreesToGoalPos(float degPos) {
 }
 
 // Ждать пока сервомоторы не займут позиции
-void WaitMotorsTakeGoalPos(int *waitServosPos) { 
+void WaitServosTakeGoalPos(int *waitServosPos) { 
   int* servosPos = new int[JOINT_N];
   bool servosIsPerformed[JOINT_N];
+  servosWorksMaxTimeTimer.setTimeout(MAX_TIME_PERFORMED_POS); // Установка времени таймера защиты по максимальному времени, запуск таймера
   DEBUG_SERIAL.println("Current servos position: ");
   while (true) {
     servosPos = GetServosPos();
@@ -269,9 +273,8 @@ void WaitMotorsTakeGoalPos(int *waitServosPos) {
     for (byte i = 0; i < JOINT_N; i++) { // Проверяем условие и записываем в массив для каждого отдельного серво
       servosIsPerformed[i] = waitServosPos[i] - DYNAMIXEL_GOAL_POS_ERROR <= servosPos[i] && servosPos[i] <= waitServosPos[i] + DYNAMIXEL_GOAL_POS_ERROR;
     }
-    // Запустить таймер, который некоторое время позволит до конца выполнить, если это возможно
-    if (servosIsPerformed[0] && servosIsPerformed[1] && servosIsPerformed[2]) break; // Если все условия выполнились, то выйти из цикла
-    delay(50);
+    if (servosIsPerformed[0] && servosIsPerformed[1] && servosIsPerformed[2] || servosWorksMaxTimeTimer.isReady()) break; // Если все условия выполнились или превышено максимальное время по таймеру, то выйти из цикла
+    delay(100);
   }
   DEBUG_SERIAL.print("Motors performed position: ");
   for (byte i = 0; i < JOINT_N; i++) {
@@ -374,4 +377,30 @@ void PneumaticSuctionCupState(bool isCapture, int delayTime) {
   if (isCapture) digitalWrite(SOLENOID_RELAY_PIN, HIGH);
   else digitalWrite(SOLENOID_RELAY_PIN, LOW);
   delay(delayTime);
+}
+
+// And copy this code into "arrayUtil.h" file
+
+int *arrayCopy(int *a, int size1, int *b, int size2) {
+    int *c = new int[size1 + size2];
+    for ( int i = 0; i < size1; i++){
+        c[i] = a[i];
+    }
+
+    for ( int i = 0; i < size2; i++) {
+        c[size1 + i] = b[i];
+    }
+    return c;
+}
+
+float *floatArrayCopy(float *a, int size1, float *b, int size2) {
+    float *c = new float[size1 + size2];
+    for ( int i = 0; i < size1; i++) {
+        c[i] = a[i];
+    }
+
+    for ( int i = 0; i < size2; i++) {
+        c[size1 + i] = b[i];
+    }
+    return c;
 }
