@@ -213,6 +213,8 @@ void DeltaMoveToPos(float x, float y, float z, bool waitPerformedPos) {
   MoveServosToPos(servosGoalPos, waitPerformedPos);
 }
 
+#include <Dynamixel2Arduino.h>  // Подключение библиотеки Dynamixel
+
 // Установить скорость сервоприводу
 void SetServoSpeed(int servoId, int speed) {
   dxl.setGoalVelocity(servoId, speed); // Задание целевой скорости
@@ -259,13 +261,6 @@ bool* GetServosMoving() {
     moving[i] = dxl.readControlTableItem(MOVING, i + 1);
   }
   return moving;
-}
-
-int ConvertDegreesToGoalPos(float degPos) {
-  // 30, 270 - мертвые зоны диномикселя
-  degPos = constrain(degPos, 30, 300); // Ограничиваем входное значение, где 30° - это начальный градус слева и 300°
-  float goalPos = map(degPos, 300, 30, 1023, 0);
-  return goalPos;
 }
 
 // Ждать пока сервомоторы не займут позиции
@@ -329,6 +324,13 @@ void WaitServosTakeGoalPos(int *waitServosPos) {
     if (i < JOINT_N - 1) DEBUG_SERIAL.print(", ");
     else DEBUG_SERIAL.println();
   }
+}
+
+int ConvertDegreesToGoalPos(float degPos) {
+  // 30, 270 - мертвые зоны диномикселя
+  degPos = constrain(degPos, 30, 300); // Ограничиваем входное значение, где 30° - это начальный градус слева и 300°
+  float goalPos = map(degPos, 300, 30, 1023, 0);
+  return goalPos;
 }
 
 float* Delta_IK(float X_V, float Y_V, float Z_V) {
