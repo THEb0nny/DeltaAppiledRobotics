@@ -1,5 +1,6 @@
 // https://emanual.robotis.com/docs/en/dxl/ax/ax-12a/
 // https://emanual.robotis.com/docs/en/parts/controller/opencm904/
+// https://emanual.robotis.com/docs/en/popup/arduino_api/readControlTableItem/
 
 // https://habr.com/ru/post/580970/
 // https://habr.com/ru/post/583190/
@@ -8,7 +9,7 @@
 #include <Dynamixel2Arduino.h>  // Подключение библиотеки Dynamixel
 #include "GyverTimer.h"
 
-#define DEBUG_LEVEL 1 // Уровень дебага
+#define DEBUG_LEVEL 2 // Уровень дебага
 
 #define DEBUG_SERIAL Serial // Установка константы, отвечающей за последовательный порт, подключаемый к компьютеру
 #define DXL_SERIAL Serial3 // OpenCM9.04 EXP Board's DXL port Serial. (To use the DXL port on the OpenCM 9.04 board, you must use Serial1 for Serial. And because of the OpenCM 9.04 driver code, you must call Serial1.setDxlMode(true); before dxl.begin();.)
@@ -17,7 +18,7 @@
 #define DXL_PROTOCOL_VERSION 1.0 // Инициализация переменной, отвечащей за протокол передачи данных от OpenCM9.04 к приводам
 #define JOINT_N 3 // Количество приводов дельты
 #define DYNAMIXEL_GOAL_POS_ERROR 3 // Погрешность позиции для динимикселей
-#define MAX_TIME_PERFORMED_POS 4000 // Максимальное время для занятия ошибка, защита
+#define MAX_TIME_PERFORMED_POS 3000 // Максимальное время для занятия ошибка, защита
 
 #define EXP_BOARD_BUTTON1_PIN D16 // Пин кнопки 1 на плате расширения
 #define EXP_BOARD_BUTTON2_PIN D17 // Пин кнопки 2 на плате расширения
@@ -55,6 +56,8 @@
 Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN); // Инициализация указателя на команды из библиотеки Dynamixel
 GTimer servosWorksMaxTimeTimer(MS); // Инициализация таймера защиты максимального времени цикла ожидания занятия позиции сервопривода
 
+using namespace ControlTableItem;
+
 byte workMode = 1; // Режим управления
 
 void setup() {
@@ -83,22 +86,23 @@ void setup() {
     }
   }
   DEBUG_SERIAL.println("Setup...");
-  for (byte i = 1; i <= JOINT_N; i++) { // Цикл для перебора всех приводов
+  for (byte i = 0; i < JOINT_N; i++) { // Цикл для перебора всех приводов
     while (true) {
-      if(dxl.ping(i) == true) { // Проверка отвечает ли мотор
-        DEBUG_SERIAL.print("Dynamixel with ID "); DEBUG_SERIAL.print(i); DEBUG_SERIAL.print(" found, model "); DEBUG_SERIAL.print(dxl.getModelNumber(i)); DEBUG_SERIAL.println(".");
+      if(dxl.ping(i + 1) == true) { // Проверка отвечает ли мотор
+        DEBUG_SERIAL.print("Dynamixel with ID "); DEBUG_SERIAL.print(i + 1); DEBUG_SERIAL.print(" found, model "); DEBUG_SERIAL.print(dxl.getModelNumber(i + 1)); DEBUG_SERIAL.println(".");
         break;
       } else {
-        DEBUG_SERIAL.print("Dynamixel with ID "); DEBUG_SERIAL.print(i); DEBUG_SERIAL.print(" not found!"); DEBUG_SERIAL.println(" Wait...");
+        DEBUG_SERIAL.print("Dynamixel with ID "); DEBUG_SERIAL.print(i + 1); DEBUG_SERIAL.print(" not found!"); DEBUG_SERIAL.println(" Wait...");
         delay(500);
       }
     }
     while (true) { // Установить режим работы
-      dxl.torqueOff(i); // Отключение блокировки привода, чтобы установить режим работы!
-      bool setDinamixelOperationMode = dxl.setOperatingMode(i, OP_POSITION); // Установка режима работы привода в качестве шарнира
+      dxl.torqueOff(i + 1); // Отключение крутящего момента, чтобы установить режим работы!
+      bool setDinamixelOperationMode = dxl.setOperatingMode(i + 1, OP_POSITION); // Установка режима работы привода в качестве шарнира
       if (!setDinamixelOperationMode) { // Если режим мотора не установился
-        DEBUG_SERIAL.print("Dynamixel with ID "); DEBUG_SERIAL.print(i); DEBUG_SERIAL.println(" mode not set!");
+        DEBUG_SERIAL.print("Dynamixel with ID "); DEBUG_SERIAL.print(i + 1); DEBUG_SERIAL.println(" mode not set!");
       } else break; // Режим установился, можно выйти из цикла
+      dxl.torqueOn(i + 1); // Включение крутящего момента
       delay(10);
     }
   }
@@ -180,7 +184,6 @@ void loop() {
           else if (value == 0) PneumaticSuctionCupState(false, 0);
           DEBUG_SERIAL.print("sc"); DEBUG_SERIAL.println(value);
         }
-        
         if (incoming != "sc") DeltaMoveToPos(x, y, z, false); // Занять позицию, если это была не команда управления присоской
       }
     }
@@ -232,7 +235,7 @@ void MoveServosToPos(int *servosPos, bool waitPerformedPos) {
   for (byte i = 0; i < JOINT_N; i++) {
     dxl.setGoalPosition(i + 1, servosPos[i]); // Задание целевого положения
   }
-  if (waitPerformedPos) WaitServosTakeGoalPos(servosPos);
+  if (waitPerformedPos) WaitServosPosPerformed();
 }
 
 // Получить от серво его угол
@@ -250,11 +253,54 @@ int* GetServosPos() {
   return pos;
 }
 
+bool* GetServosMoving() {
+  bool *moving = new bool[JOINT_N];
+  for (byte i = 0; i < JOINT_N; i++) {
+    moving[i] = dxl.readControlTableItem(MOVING, i + 1);
+  }
+  return moving;
+}
+
 int ConvertDegreesToGoalPos(float degPos) {
   // 30, 270 - мертвые зоны диномикселя
   degPos = constrain(degPos, 30, 300); // Ограничиваем входное значение, где 30° - это начальный градус слева и 300°
-  float goalPos = map(degPos, 330, 30, 1023, 0);
+  float goalPos = map(degPos, 300, 30, 1023, 0);
   return goalPos;
+}
+
+// Ждать пока сервомоторы не займут позиции
+void WaitServosPosPerformed() {
+  int* servosPos = new int[JOINT_N];
+  servosWorksMaxTimeTimer.setTimeout(MAX_TIME_PERFORMED_POS); // Установка времени таймера защиты по максимальному времени, запуск таймера
+  servosWorksMaxTimeTimer.reset();
+  if (DEBUG_LEVEL >= 1) DEBUG_SERIAL.println("Current servos position: ");
+  while (true) {
+    int* servosPos = GetServosPos();
+    bool* isMoving = GetServosMoving();
+    if (DEBUG_LEVEL >= 1) {
+      for (byte i = 0; i < JOINT_N; i++) {
+        DEBUG_SERIAL.print(servosPos[i]);
+        if (i < JOINT_N - 1) DEBUG_SERIAL.print(", ");
+        else DEBUG_SERIAL.println();
+      }
+    }
+    if (DEBUG_LEVEL >= 2) {
+      for (byte i = 0; i < JOINT_N; i++) { // 1 - движение, 0 - движения нет
+        DEBUG_SERIAL.print(isMoving[i]);
+        if (i < JOINT_N - 1) DEBUG_SERIAL.print(", ");
+        else DEBUG_SERIAL.println();
+      }
+    }
+    if ((isMoving[0] == 0 && isMoving[1] == 0 && isMoving[2] == 0) || servosWorksMaxTimeTimer.isReady()) break; // Если все условия выполнились по серво или превышено максимальное время по таймеру, то выйти из цикла
+    delay(150);
+    
+  }
+  DEBUG_SERIAL.print("Motors performed position: ");
+  for (byte i = 0; i < JOINT_N; i++) {
+    DEBUG_SERIAL.print(servosPos[i]);
+    if (i < JOINT_N - 1) DEBUG_SERIAL.print(", ");
+    else DEBUG_SERIAL.println();
+  }
 }
 
 // Ждать пока сервомоторы не займут позиции
@@ -262,6 +308,7 @@ void WaitServosTakeGoalPos(int *waitServosPos) {
   int* servosPos = new int[JOINT_N];
   bool servosIsPerformed[JOINT_N];
   servosWorksMaxTimeTimer.setTimeout(MAX_TIME_PERFORMED_POS); // Установка времени таймера защиты по максимальному времени, запуск таймера
+  servosWorksMaxTimeTimer.reset();
   DEBUG_SERIAL.println("Current servos position: ");
   while (true) {
     servosPos = GetServosPos();
@@ -273,8 +320,8 @@ void WaitServosTakeGoalPos(int *waitServosPos) {
     for (byte i = 0; i < JOINT_N; i++) { // Проверяем условие и записываем в массив для каждого отдельного серво
       servosIsPerformed[i] = waitServosPos[i] - DYNAMIXEL_GOAL_POS_ERROR <= servosPos[i] && servosPos[i] <= waitServosPos[i] + DYNAMIXEL_GOAL_POS_ERROR;
     }
-    if (servosIsPerformed[0] && servosIsPerformed[1] && servosIsPerformed[2] || servosWorksMaxTimeTimer.isReady()) break; // Если все условия выполнились или превышено максимальное время по таймеру, то выйти из цикла
-    delay(100);
+    if ((servosIsPerformed[0] && servosIsPerformed[1] && servosIsPerformed[2]) || servosWorksMaxTimeTimer.isReady()) break; // Если все условия выполнились по серво или превышено максимальное время по таймеру, то выйти из цикла
+    delay(150);
   }
   DEBUG_SERIAL.print("Motors performed position: ");
   for (byte i = 0; i < JOINT_N; i++) {
@@ -377,30 +424,4 @@ void PneumaticSuctionCupState(bool isCapture, int delayTime) {
   if (isCapture) digitalWrite(SOLENOID_RELAY_PIN, HIGH);
   else digitalWrite(SOLENOID_RELAY_PIN, LOW);
   delay(delayTime);
-}
-
-// And copy this code into "arrayUtil.h" file
-
-int *arrayCopy(int *a, int size1, int *b, int size2) {
-    int *c = new int[size1 + size2];
-    for ( int i = 0; i < size1; i++){
-        c[i] = a[i];
-    }
-
-    for ( int i = 0; i < size2; i++) {
-        c[size1 + i] = b[i];
-    }
-    return c;
-}
-
-float *floatArrayCopy(float *a, int size1, float *b, int size2) {
-    float *c = new float[size1 + size2];
-    for ( int i = 0; i < size1; i++) {
-        c[i] = a[i];
-    }
-
-    for ( int i = 0; i < size2; i++) {
-        c[size1 + i] = b[i];
-    }
-    return c;
 }
