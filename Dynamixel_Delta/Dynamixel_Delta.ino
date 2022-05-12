@@ -61,7 +61,7 @@ using namespace ControlTableItem;
 byte workMode = 1; // Режим управления
 
 void setup() {
-  DEBUG_SERIAL.begin(57600); // Установка скорости обмена данными по последовательному порту компьютера
+  DEBUG_SERIAL.begin(9600); // Установка скорости обмена данными по последовательному порту компьютера
   pinMode(EXP_BOARD_BUTTON1_PIN, INPUT_PULLDOWN); // Установка режима кнопки 1 на плате расширения
   pinMode(EXP_BOARD_BUTTON2_PIN, INPUT_PULLDOWN); // Установка режима кнопки 2 на плате расширения
   pinMode(EXP_BOARD_LED1_PIN, OUTPUT); // Установка режима пина светодиода 1 на плате расширения
@@ -107,7 +107,7 @@ void setup() {
     }
   }
   DEBUG_SERIAL.print("Start... Work mode is "); DEBUG_SERIAL.println(workMode);
-  SetAllServosSpeed(60); // Установить всем сервоприводам скорость
+  SetAllServosSpeed(40); // Установить всем сервоприводам скорость
   DeltaMoveToPos(0, 0, MIN_Z, true); // Занять начальную позицию
 }
 
@@ -213,8 +213,6 @@ void DeltaMoveToPos(float x, float y, float z, bool waitPerformedPos) {
   MoveServosToPos(servosGoalPos, waitPerformedPos);
 }
 
-#include <Dynamixel2Arduino.h>  // Подключение библиотеки Dynamixel
-
 // Установить скорость сервоприводу
 void SetServoSpeed(int servoId, int speed) {
   dxl.setGoalVelocity(servoId, speed); // Задание целевой скорости
@@ -255,6 +253,7 @@ int* GetServosPos() {
   return pos;
 }
 
+// Получить значения о движения моторов
 bool* GetServosMoving() {
   bool *moving = new bool[JOINT_N];
   for (byte i = 0; i < JOINT_N; i++) {
@@ -288,7 +287,6 @@ void WaitServosPosPerformed() {
     }
     if ((isMoving[0] == 0 && isMoving[1] == 0 && isMoving[2] == 0) || servosWorksMaxTimeTimer.isReady()) break; // Если все условия выполнились по серво или превышено максимальное время по таймеру, то выйти из цикла
     delay(150);
-    
   }
   DEBUG_SERIAL.print("Motors performed position: ");
   for (byte i = 0; i < JOINT_N; i++) {
@@ -327,7 +325,7 @@ void WaitServosTakeGoalPos(int *waitServosPos) {
 }
 
 int ConvertDegreesToGoalPos(float degPos) {
-  // 30, 270 - мертвые зоны диномикселя
+  // 30, 300 - мертвые зоны диномикселя
   degPos = constrain(degPos, 30, 300); // Ограничиваем входное значение, где 30° - это начальный градус слева и 300°
   float goalPos = map(degPos, 300, 30, 1023, 0);
   return goalPos;
