@@ -42,15 +42,11 @@
 // Размеры робота в мм
 #define F_BASE_PLATFORM_DELTA 158.483 // Длина стороны верхнего неподвижного основания
 #define OQ F_BASE_PLATFORM_DELTA * SQRT3 / 6 // Радиус окружности осей шарниров
-
 #define R_L_DELTA 100 // Длина рычага
 #define R_R_DELTA 212 // Длина штанги
-
 #define F_PLATFORM_DELTA 62.354 // Длина стороны подвижной платформы
 #define VM F_PLATFORM_DELTA * SQRT3 / 6 // Радиус окружности осей рычагов
-
 #define OFFSET_V_IN_PLATFORM_HEIGHT 10 // Размер высоты платформы для смещения точки V
-
 #define MIN_Z -123 // Минимальная высота работы
 
 Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN); // Инициализация указателя на команды из библиотеки Dynamixel
@@ -102,15 +98,14 @@ void setup() {
       if (!setDinamixelOperationMode) { // Если режим мотора не установился
         DEBUG_SERIAL.print("Dynamixel with ID "); DEBUG_SERIAL.print(i + 1); DEBUG_SERIAL.println(" mode not set!");
       } else break; // Режим установился, можно выйти из цикла
-      dxl.torqueOn(i + 1); // Включение крутящего момента
       delay(10);
     }
+    dxl.torqueOn(i + 1); // Включение крутящего момента
   }
   DEBUG_SERIAL.print("Start... Work mode is "); DEBUG_SERIAL.println(workMode);
   SetAllServosSpeed(40); // Установить всем сервоприводам скорость
   DeltaMoveToPos(0, 0, MIN_Z, true); // Занять начальную позицию
 }
-
 
 void loop() {
   if (workMode == 1) {
@@ -255,11 +250,11 @@ int* GetServosPos() {
 
 // Получить значения о движения моторов
 bool* GetServosMoving() {
-  bool *moving = new bool[JOINT_N];
+  bool *movingStates = new bool[JOINT_N];
   for (byte i = 0; i < JOINT_N; i++) {
-    moving[i] = dxl.readControlTableItem(MOVING, i + 1);
+    movingStates[i] = dxl.readControlTableItem(MOVING, i + 1);
   }
-  return moving;
+  return movingStates;
 }
 
 // Ждать пока сервомоторы не займут позиции
@@ -269,7 +264,7 @@ void WaitServosPosPerformed() {
   servosWorksMaxTimeTimer.reset();
   if (DEBUG_LEVEL >= 1) DEBUG_SERIAL.println("Current servos position: ");
   while (true) {
-    int* servosPos = GetServosPos();
+    servosPos = GetServosPos();
     bool* isMoving = GetServosMoving();
     if (DEBUG_LEVEL >= 1) {
       for (byte i = 0; i < JOINT_N; i++) {
@@ -285,52 +280,28 @@ void WaitServosPosPerformed() {
         else DEBUG_SERIAL.println();
       }
     }
-    if ((isMoving[0] == 0 && isMoving[1] == 0 && isMoving[2] == 0) || servosWorksMaxTimeTimer.isReady()) break; // Если все условия выполнились по серво или превышено максимальное время по таймеру, то выйти из цикла
-    delay(150);
+    // Если все условия выполнились по серво или превышено максимальное время по таймеру, то выйти из цикла
+    if ((isMoving[0] == 0 && isMoving[1] == 0 && isMoving[2] == 0) || servosWorksMaxTimeTimer.isReady()) break;
+    delay(100);
   }
-  DEBUG_SERIAL.print("Motors performed position: ");
-  for (byte i = 0; i < JOINT_N; i++) {
-    DEBUG_SERIAL.print(servosPos[i]);
-    if (i < JOINT_N - 1) DEBUG_SERIAL.print(", ");
-    else DEBUG_SERIAL.println();
-  }
-}
-
-// Ждать пока сервомоторы не займут позиции
-void WaitServosTakeGoalPos(int *waitServosPos) { 
-  int* servosPos = new int[JOINT_N];
-  bool servosIsPerformed[JOINT_N];
-  servosWorksMaxTimeTimer.setTimeout(MAX_TIME_PERFORMED_POS); // Установка времени таймера защиты по максимальному времени, запуск таймера
-  servosWorksMaxTimeTimer.reset();
-  DEBUG_SERIAL.println("Current servos position: ");
-  while (true) {
-    servosPos = GetServosPos();
+  if (DEBUG_LEVEL >= 1) {
+    DEBUG_SERIAL.print("Motors performed position: ");
     for (byte i = 0; i < JOINT_N; i++) {
       DEBUG_SERIAL.print(servosPos[i]);
       if (i < JOINT_N - 1) DEBUG_SERIAL.print(", ");
       else DEBUG_SERIAL.println();
     }
-    for (byte i = 0; i < JOINT_N; i++) { // Проверяем условие и записываем в массив для каждого отдельного серво
-      servosIsPerformed[i] = waitServosPos[i] - DYNAMIXEL_GOAL_POS_ERROR <= servosPos[i] && servosPos[i] <= waitServosPos[i] + DYNAMIXEL_GOAL_POS_ERROR;
-    }
-    if ((servosIsPerformed[0] && servosIsPerformed[1] && servosIsPerformed[2]) || servosWorksMaxTimeTimer.isReady()) break; // Если все условия выполнились по серво или превышено максимальное время по таймеру, то выйти из цикла
-    delay(150);
-  }
-  DEBUG_SERIAL.print("Motors performed position: ");
-  for (byte i = 0; i < JOINT_N; i++) {
-    DEBUG_SERIAL.print(servosPos[i]);
-    if (i < JOINT_N - 1) DEBUG_SERIAL.print(", ");
-    else DEBUG_SERIAL.println();
   }
 }
 
 int ConvertDegreesToGoalPos(float degPos) {
   // 30, 300 - мертвые зоны диномикселя
   degPos = constrain(degPos, 30, 300); // Ограничиваем входное значение, где 30° - это начальный градус слева и 300°
-  float goalPos = map(degPos, 300, 30, 1023, 0);
+  int goalPos = map(degPos, 300, 30, 1023, 0);
   return goalPos;
 }
 
+// Расчёт обратной кинематики
 float* Delta_IK(float X_V, float Y_V, float Z_V) {
   Z_V += OFFSET_V_IN_PLATFORM_HEIGHT; // Учитываем высоту платформы
   // Расчёт координат точки V в системах координат, повёрнутых на 120° и 240° по часовой стрелке относительно основной
@@ -345,6 +316,7 @@ float* Delta_IK(float X_V, float Y_V, float Z_V) {
   return ik_theta;
 }
 
+// Вспомогательнафя функция расчёта углов сервоприводов обратной кинематики
 float Calc_Theta(int X_V, int Y_V, int Z_V) {
   float y_M = -VM + Y_V;
   float y_Q = -OQ;
@@ -366,6 +338,7 @@ float Calc_Theta(int X_V, int Y_V, int Z_V) {
   return theta;
 }
 
+// Расчёт прямой кинематики
 float* Delta_FK(float theta1, int theta2, int theta3) {
   // Расчёт координат концов рычагов
   float x_L1 = 0;
