@@ -9,7 +9,7 @@
 #include <Dynamixel2Arduino.h>  // Подключение библиотеки Dynamixel
 #include "GyverTimer.h"
 
-#define DEBUG_LEVEL 2 // Уровень дебага
+#define DEBUG_LEVEL 0 // Уровень дебага
 #define MAX_INPUT_VAL_IN_MANUAL_CONTROL 4 // Максимальное количество значений введёных в Serial 
 
 #define DEBUG_SERIAL Serial // Установка константы, отвечающей за последовательный порт, подключаемый к компьютеру
@@ -52,6 +52,7 @@
 
 Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN); // Инициализация указателя на команды из библиотеки Dynamixel
 GTimer servosWorksMaxTimeTimer(MS); // Инициализация таймера защиты максимального времени цикла ожидания занятия позиции сервопривода
+GTimer serialPrintTimer(MS);
 
 using namespace ControlTableItem;
 
@@ -59,17 +60,16 @@ byte workMode = 1; // Режим управления
 
 void setup() {
   DEBUG_SERIAL.begin(57600); // Установка скорости обмена данными по последовательному порту компьютера
+  PneumaticSuctionCupState(false, 0); // Не захватывать при старте
   pinMode(EXP_BOARD_BUTTON1_PIN, INPUT_PULLDOWN); // Установка режима кнопки 1 на плате расширения
   pinMode(EXP_BOARD_BUTTON2_PIN, INPUT_PULLDOWN); // Установка режима кнопки 2 на плате расширения
   pinMode(EXP_BOARD_LED1_PIN, OUTPUT); // Установка режима пина светодиода 1 на плате расширения
   pinMode(EXP_BOARD_LED2_PIN, OUTPUT); // Установка режима пина светодиода 2 на плате расширения
   pinMode(EXP_BOARD_LED3_PIN, OUTPUT); // Установка режима пина светодиода 3 на плате расширения
   pinMode(SOLENOID_RELAY_PIN, OUTPUT); // Управление реле с помощью соленоида
-  PneumaticSuctionCupState(false, 0); // Не захватывать при старте
   digitalWrite(EXP_BOARD_LED1_PIN, LED_LOW); // Выключаем светодиод 1 на плате расширения
   digitalWrite(EXP_BOARD_LED2_PIN, LED_LOW); // Выключаем светодиод 2 на плате расширения
   digitalWrite(EXP_BOARD_LED3_PIN, LED_LOW); // Выключаем светодиод 3 на плате расширения
-  DXL_SERIAL.setDxlMode(true);
   dxl.begin(1000000); // Установка скорости обмена данными по последовательному порту манипулятора
   dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION); // Выбор протокола обмена данными
   DEBUG_SERIAL.println("Wait press Btn1 or Btn2...");
@@ -84,20 +84,24 @@ void setup() {
     }
   }
   DEBUG_SERIAL.println("Setup...");
+  serialPrintTimer.setInterval(500); // Установить таймер печати
+  serialPrintTimer.reset(); // Спросить таймер печати
   for (byte i = 0; i < JOINT_N; i++) { // Цикл для перебора всех приводов
     while (true) {
       if(dxl.ping(i + 1) == true) { // Проверка отвечает ли мотор
         DEBUG_SERIAL.print("Dynamixel with ID "); DEBUG_SERIAL.print(i + 1); DEBUG_SERIAL.print(" found, model "); DEBUG_SERIAL.print(dxl.getModelNumber(i + 1)); DEBUG_SERIAL.println(".");
         break;
       } else {
-        DEBUG_SERIAL.print("Dynamixel with ID "); DEBUG_SERIAL.print(i + 1); DEBUG_SERIAL.print(" not found!"); DEBUG_SERIAL.println(" Wait...");
+        if (serialPrintTimer.isReady()) {
+          DEBUG_SERIAL.print("Dynamixel with ID "); DEBUG_SERIAL.print(i + 1); DEBUG_SERIAL.print(" not found!"); DEBUG_SERIAL.println(" Wait...");
+        }
         delay(10);
       }
     }
     while (true) { // Установить режим работы
       dxl.torqueOff(i + 1); // Отключение крутящего момента, чтобы установить режим работы!
       bool setDinamixelOperationMode = dxl.setOperatingMode(i + 1, OP_POSITION); // Установка режима работы привода в качестве шарнира
-      if (!setDinamixelOperationMode) { // Если режим мотора не установился
+      if (!setDinamixelOperationMode && serialPrintTimer.isReady()) { // Если режим мотора не установился
         DEBUG_SERIAL.print("Dynamixel with ID "); DEBUG_SERIAL.print(i + 1); DEBUG_SERIAL.println(" mode not set!");
       } else break; // Режим установился, можно выйти из цикла
       delay(10);
@@ -105,94 +109,37 @@ void setup() {
     dxl.torqueOn(i + 1); // Включение крутящего момента
   }
   DEBUG_SERIAL.print("Start... Work mode is "); DEBUG_SERIAL.println(workMode);
-  SetAllServosSpeed(40); // Установить всем сервоприводам скорость
+  SetAllServosSpeed(50); // Установить всем сервоприводам скорость
   DeltaMoveToPos(0, 0, MIN_Z, true); // Занять начальную позицию
 }
 
 void loop() {
   if (workMode == 1) {
     bool suctionCupState = false; // Состояние для автоматического режима демонстрации
-    //byte speed = 40; // Скорость диномикселей
     while (true) {
-      //SetAllServosSpeed(speed);
       //// 1 pos
-      DeltaMoveToPos(0, 45, -135, true); // Занять начальную позицию
-      if (!suctionCupState) PneumaticSuctionCupState(true, 1000); // Захватить, если присоска не работала
-      else PneumaticSuctionCupState(false, 1000); // Отпустить, если присоска до этого захватила
+      DeltaMoveToPos(0, 45, -125, true); // Занять начальную позицию
+      DeltaMoveToPos(0, 45, -140, true); // Занять начальную позицию
+      if (!suctionCupState) PneumaticSuctionCupState(true, 500); // Захватить, если присоска не работала
+      else PneumaticSuctionCupState(false, 500); // Отпустить, если присоска до этого захватила
       suctionCupState = !suctionCupState; // Поменять состояние пневматического захвата
+      DeltaMoveToPos(0, 45, -125, true); // Занять начальную позицию
   
       //// 2 pos
-      DeltaMoveToPos(-45, -45, -135, true); // Занять начальную позицию
-      if (!suctionCupState) PneumaticSuctionCupState(true, 1000); // Захватить, если присоска не работала
-      else PneumaticSuctionCupState(false, 1000); // Отпустить, если присоска до этого захватила
+      DeltaMoveToPos(-45, -45, -125, true); // Занять начальную позицию
+      DeltaMoveToPos(-45, -45, -140, true); // Занять начальную позицию
+      if (!suctionCupState) PneumaticSuctionCupState(true, 500); // Захватить, если присоска не работала
+      else PneumaticSuctionCupState(false, 500); // Отпустить, если присоска до этого захватила
       suctionCupState = !suctionCupState; // Поменять состояние пневматического захвата
+      DeltaMoveToPos(-45, -45, -125, true); // Занять начальную позицию
   
       //// 3 pos
-      DeltaMoveToPos(45, -45, -135, true); // Занять начальную позицию
-      if (!suctionCupState) PneumaticSuctionCupState(true, 1000); // Захватить, если присоска не работала
-      else PneumaticSuctionCupState(false, 1000); // Отпустить, если присоска до этого захватила
+      DeltaMoveToPos(45, -45, -125, true); // Занять начальную позицию
+      DeltaMoveToPos(45, -45, -140, true); // Занять начальную позицию
+      if (!suctionCupState) PneumaticSuctionCupState(true, 500); // Захватить, если присоска не работала
+      else PneumaticSuctionCupState(false, 500); // Отпустить, если присоска до этого захватила
       suctionCupState = !suctionCupState; // Поменять состояние пневматического захвата
-      
-      //speed += 5; // Увеличиваем скорость после одного шага выполнения
-      //if (speed >= 70) speed = 40; // Сбросить скорость
-    }
-  } else if (workMode == 2) {
-    while(!DEBUG_SERIAL); // Ждём, пока монитор порта не откроется
-    float* servosPos = Delta_FK(GetServoPos(1), GetServoPos(2), GetServoPos(3));
-    int x = servosPos[0], y = servosPos[1], z = servosPos[2];
-    bool control = true;
-    DEBUG_SERIAL.print("x: "); DEBUG_SERIAL.print(x); DEBUG_SERIAL.print(" y: "); DEBUG_SERIAL.print(y); DEBUG_SERIAL.print(" z: "); DEBUG_SERIAL.println(z);
-    while (control) {
-      String inputValues[MAX_INPUT_VAL_IN_MANUAL_CONTROL]; // Массив входящей строки
-      String key[MAX_INPUT_VAL_IN_MANUAL_CONTROL]; // Массив ключей
-      int values[MAX_INPUT_VAL_IN_MANUAL_CONTROL]; // Массив значений
-      if (Serial.available() > 2) { // Если есть доступные данные
-        // Встроенная функция readStringUntil будет читать все данные, пришедшие в UART до специального символа — '\n' (перенос строки).
-        // Он появляется в паре с '\r' (возврат каретки) при передаче данных функцией Serial.println().
-        // Эти символы удобно передавать для разделения команд, но не очень удобно обрабатывать. Удаляем их функцией trim().
-        String inputStr = Serial.readStringUntil('\n');
-        inputStr.trim(); // Чистим символы
-        char strBuffer[99]; // Создаём пустой массив символов
-        inputStr.toCharArray(strBuffer, 99); // Перевести строку в массив символов последующего разделения по пробелам
-        // Считываем x и y разделённых пробелом, а также Z и инструментом
-        for (byte i = 0; i < MAX_INPUT_VAL_IN_MANUAL_CONTROL; i++) {
-          inputValues[i] = (i == 0 ? String(strtok(strBuffer, " ")) : String(strtok(NULL, " ")));
-          inputValues[i].replace(" ", ""); // Убрать возможные пробелы между символами
-          if (DEBUG_LEVEL >= 2) {
-            if (inputValues[i] != "") {
-              if (i > 0) Serial.print(", ");
-              Serial.print(inputValues[i]);
-            }
-            if (i == MAX_INPUT_VAL_IN_MANUAL_CONTROL - 1) Serial.println();
-          }
-        }
-        for (byte i = 0; i < MAX_INPUT_VAL_IN_MANUAL_CONTROL; i++) {
-          if (inputValues[i] == "") continue; // Если значение пустое, то перейти на следующий шаг цикла
-          String inputValue = inputValues[i]; // Записываем в строку обрезанную часть пробелами
-          byte separatorIndexTmp = inputValue.indexOf("="); // Значение, где мы нашли позицию знака равенства
-          byte separatorIndex = (separatorIndexTmp != 255 ? separatorIndexTmp : inputValue.length()); // Окончательная позиция для разделения
-          key[i] = inputValue.substring(0, separatorIndex); // Записываем ключ с начала строки до знака равно
-          values[i] = (inputValue.substring(separatorIndex + 1, inputValue.length())).toInt(); // Записываем значение с начала цифры до конца строки
-          if (key[i] == "x") {
-            x = values[i];
-            DEBUG_SERIAL.print("x"); DEBUG_SERIAL.println(x);
-          } else if (key[i] == "y") {
-            y = values[i];
-            DEBUG_SERIAL.print("y"); DEBUG_SERIAL.println(y);
-          } else if (key[i] == "z") {
-            z = values[i];
-            DEBUG_SERIAL.print("z"); DEBUG_SERIAL.println(z);
-          } else if (key[i] == "s") {
-            SetAllServosSpeed(values[i]);
-            DEBUG_SERIAL.print("s"); DEBUG_SERIAL.println(values[i]);
-          } else if (key[i] == "sc") {
-            if (values[i] == 1) PneumaticSuctionCupState(true, 0);
-            else if (values[i] == 0) PneumaticSuctionCupState(false, 0);
-            DEBUG_SERIAL.print("sc"); DEBUG_SERIAL.println(values[i]);
-          }
-          //if (values[i] != "sc") DeltaMoveToPos(x, y, z, false); // Занять позицию, если это была не команда управления присоской
-        }
-      }
+      DeltaMoveToPos(45, -45, -125, true); // Занять начальную позицию
     }
   }
 }
@@ -204,18 +151,22 @@ void DeltaMoveToPos(float x, float y, float z, bool waitPerformedPos) {
   //z = constrain(z, -122.0, -280.0); // Ограничения по z
   float* servosDegPos = Delta_IK(x, y, z);
   int* servosGoalPos = new int[3];
-  DEBUG_SERIAL.print("NeedMotDeg: ");
-  for (byte i = 0; i < JOINT_N; i++) {
-    DEBUG_SERIAL.print(servosDegPos[i]);
-    if (i < JOINT_N - 1) DEBUG_SERIAL.print(", ");
-    else DEBUG_SERIAL.println();
+  if (DEBUG_LEVEL >= 1) {
+    DEBUG_SERIAL.print("Target servo mot deg: ");
+    for (byte i = 0; i < JOINT_N; i++) {
+      DEBUG_SERIAL.print(servosDegPos[i]);
+      if (i < JOINT_N - 1) DEBUG_SERIAL.print(", ");
+      else DEBUG_SERIAL.println();
+    }
   }
-  DEBUG_SERIAL.print("NeedServoMotPos: ");
+  if (DEBUG_LEVEL >= 1) DEBUG_SERIAL.print("Target servo mot pos: ");
   for (byte i = 0; i < JOINT_N; i++) {
     servosGoalPos[i] = ConvertDegreesToGoalPos(servosDegPos[i]);
-    DEBUG_SERIAL.print(servosGoalPos[i]);
-    if (i < JOINT_N - 1) DEBUG_SERIAL.print(", ");
-    else DEBUG_SERIAL.println();
+    if (DEBUG_LEVEL >= 1) {
+      DEBUG_SERIAL.print(servosGoalPos[i]);
+      if (i < JOINT_N - 1) DEBUG_SERIAL.print(", ");
+      else DEBUG_SERIAL.println();
+    }
   }
   MoveServosToPos(servosGoalPos, waitPerformedPos);
 }
