@@ -57,7 +57,7 @@ using namespace ControlTableItem;
 byte workMode = 1; // Режим управления
 
 void setup() {
-  DEBUG_SERIAL.begin(9600); // Установка скорости обмена данными по последовательному порту компьютера
+  DEBUG_SERIAL.begin(57600); // Установка скорости обмена данными по последовательному порту компьютера
   pinMode(EXP_BOARD_BUTTON1_PIN, INPUT_PULLDOWN); // Установка режима кнопки 1 на плате расширения
   pinMode(EXP_BOARD_BUTTON2_PIN, INPUT_PULLDOWN); // Установка режима кнопки 2 на плате расширения
   pinMode(EXP_BOARD_LED1_PIN, OUTPUT); // Установка режима пина светодиода 1 на плате расширения
@@ -68,6 +68,7 @@ void setup() {
   digitalWrite(EXP_BOARD_LED1_PIN, LED_LOW); // Выключаем светодиод 1 на плате расширения
   digitalWrite(EXP_BOARD_LED2_PIN, LED_LOW); // Выключаем светодиод 2 на плате расширения
   digitalWrite(EXP_BOARD_LED3_PIN, LED_LOW); // Выключаем светодиод 3 на плате расширения
+  Serial1.setDxlMode(true);
   dxl.begin(1000000); // Установка скорости обмена данными по последовательному порту манипулятора
   dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION); // Выбор протокола обмена данными
   DEBUG_SERIAL.println("Wait press Btn1 or Btn2...");
