@@ -10,6 +10,7 @@
 #include "GyverTimer.h"
 
 #define DEBUG_LEVEL 2 // Уровень дебага
+#define MAX_INPUT_VAL_IN_MANUAL_CONTROL 4 // Максимальное количество значений введёных в Serial 
 
 #define DEBUG_SERIAL Serial // Установка константы, отвечающей за последовательный порт, подключаемый к компьютеру
 #define DXL_SERIAL Serial3 // OpenCM9.04 EXP Board's DXL port Serial. (To use the DXL port on the OpenCM 9.04 board, you must use Serial1 for Serial. And because of the OpenCM 9.04 driver code, you must call Serial1.setDxlMode(true); before dxl.begin();.)
@@ -90,7 +91,7 @@ void setup() {
         break;
       } else {
         DEBUG_SERIAL.print("Dynamixel with ID "); DEBUG_SERIAL.print(i + 1); DEBUG_SERIAL.print(" not found!"); DEBUG_SERIAL.println(" Wait...");
-        delay(500);
+        delay(10);
       }
     }
     while (true) { // Установить режим работы
@@ -139,48 +140,58 @@ void loop() {
     while(!DEBUG_SERIAL); // Ждём, пока монитор порта не откроется
     float* servosPos = Delta_FK(GetServoPos(1), GetServoPos(2), GetServoPos(3));
     int x = servosPos[0], y = servosPos[1], z = servosPos[2];
-    DEBUG_SERIAL.println("Current servos position: ");
-    for (byte i = 0; i < JOINT_N; i++) {
-      DEBUG_SERIAL.print(servosPos[i]);
-      if (i < JOINT_N - 1) DEBUG_SERIAL.print(", ");
-      else DEBUG_SERIAL.println();
-    }
+    bool control = true;
     DEBUG_SERIAL.print("x: "); DEBUG_SERIAL.print(x); DEBUG_SERIAL.print(" y: "); DEBUG_SERIAL.print(y); DEBUG_SERIAL.print(" z: "); DEBUG_SERIAL.println(z);
-    while (true) {
-      if (Serial.available() > 2) {
+    while (control) {
+      String inputValues[MAX_INPUT_VAL_IN_MANUAL_CONTROL]; // Массив входящей строки
+      String key[MAX_INPUT_VAL_IN_MANUAL_CONTROL]; // Массив ключей
+      int values[MAX_INPUT_VAL_IN_MANUAL_CONTROL]; // Массив значений
+      if (Serial.available() > 2) { // Если есть доступные данные
         // Встроенная функция readStringUntil будет читать все данные, пришедшие в UART до специального символа — '\n' (перенос строки).
         // Он появляется в паре с '\r' (возврат каретки) при передаче данных функцией Serial.println().
         // Эти символы удобно передавать для разделения команд, но не очень удобно обрабатывать. Удаляем их функцией trim().
-        String command = Serial.readStringUntil('\n');
-        command.trim();
-        command.replace(" ", ""); // Убрать возможные пробелы между символами
-        byte strIndex = command.length(); // Переменая для хронения индекса вхождения цифры в входной строке
-        // Поиск первого вхождения цифры от 0 по 9 в подстроку
-        for (byte i = 0; i < 10; i++) {
-          byte index = command.indexOf(String(i));
-          if (index < strIndex && index != 255) strIndex = index;
+        String inputStr = Serial.readStringUntil('\n');
+        inputStr.trim(); // Чистим символы
+        char strBuffer[99]; // Создаём пустой массив символов
+        inputStr.toCharArray(strBuffer, 99); // Перевести строку в массив символов последующего разделения по пробелам
+        // Считываем x и y разделённых пробелом, а также Z и инструментом
+        for (byte i = 0; i < MAX_INPUT_VAL_IN_MANUAL_CONTROL; i++) {
+          inputValues[i] = (i == 0 ? String(strtok(strBuffer, " ")) : String(strtok(NULL, " ")));
+          inputValues[i].replace(" ", ""); // Убрать возможные пробелы между символами
+          if (DEBUG_LEVEL >= 2) {
+            if (inputValues[i] != "") {
+              if (i > 0) Serial.print(", ");
+              Serial.print(inputValues[i]);
+            }
+            if (i == MAX_INPUT_VAL_IN_MANUAL_CONTROL - 1) Serial.println();
+          }
         }
-        String incoming = command.substring(0, strIndex);
-        String valueStr = command.substring(strIndex, command.length());
-        int value = valueStr.toInt();
-        if (incoming == "x") {
-          x = value;
-          DEBUG_SERIAL.print("x"); DEBUG_SERIAL.println(x);
-        } else if (incoming == "y") {
-          y = value;
-          DEBUG_SERIAL.print("y"); DEBUG_SERIAL.println(y);
-        } else if (incoming == "z") {
-          z = value;
-          DEBUG_SERIAL.print("z"); DEBUG_SERIAL.println(z);
-        } else if (incoming == "s") {
-          SetAllServosSpeed(value);
-          DEBUG_SERIAL.print("s"); DEBUG_SERIAL.println(value);
-        } else if (incoming == "sc") {
-          if (value == 1) PneumaticSuctionCupState(true, 0);
-          else if (value == 0) PneumaticSuctionCupState(false, 0);
-          DEBUG_SERIAL.print("sc"); DEBUG_SERIAL.println(value);
+        for (byte i = 0; i < MAX_INPUT_VAL_IN_MANUAL_CONTROL; i++) {
+          if (inputValues[i] == "") continue; // Если значение пустое, то перейти на следующий шаг цикла
+          String inputValue = inputValues[i]; // Записываем в строку обрезанную часть пробелами
+          byte separatorIndexTmp = inputValue.indexOf("="); // Значение, где мы нашли позицию знака равенства
+          byte separatorIndex = (separatorIndexTmp != 255 ? separatorIndexTmp : inputValue.length()); // Окончательная позиция для разделения
+          key[i] = inputValue.substring(0, separatorIndex); // Записываем ключ с начала строки до знака равно
+          values[i] = (inputValue.substring(separatorIndex + 1, inputValue.length())).toInt(); // Записываем значение с начала цифры до конца строки
+          if (key[i] == "x") {
+            x = values[i];
+            DEBUG_SERIAL.print("x"); DEBUG_SERIAL.println(x);
+          } else if (key[i] == "y") {
+            y = values[i];
+            DEBUG_SERIAL.print("y"); DEBUG_SERIAL.println(y);
+          } else if (key[i] == "z") {
+            z = values[i];
+            DEBUG_SERIAL.print("z"); DEBUG_SERIAL.println(z);
+          } else if (key[i] == "s") {
+            SetAllServosSpeed(values[i]);
+            DEBUG_SERIAL.print("s"); DEBUG_SERIAL.println(values[i]);
+          } else if (key[i] == "sc") {
+            if (values[i] == 1) PneumaticSuctionCupState(true, 0);
+            else if (values[i] == 0) PneumaticSuctionCupState(false, 0);
+            DEBUG_SERIAL.print("sc"); DEBUG_SERIAL.println(values[i]);
+          }
+          //if (values[i] != "sc") DeltaMoveToPos(x, y, z, false); // Занять позицию, если это была не команда управления присоской
         }
-        if (incoming != "sc") DeltaMoveToPos(x, y, z, false); // Занять позицию, если это была не команда управления присоской
       }
     }
   }
