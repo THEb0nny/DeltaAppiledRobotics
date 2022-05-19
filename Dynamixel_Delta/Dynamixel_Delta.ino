@@ -111,7 +111,7 @@ void setup() {
   DEBUG_SERIAL.print("Start... Work mode is "); DEBUG_SERIAL.println(workMode);
   SetAllServosSpeed(50); // Установить всем сервоприводам скорость
   DeltaMoveToPos(0, 0, MIN_Z, false); // Занять начальную позицию
-  delay(4000);
+  delay(2500);
 }
 
 void loop() {
@@ -120,9 +120,9 @@ void loop() {
     while (true) {
       //// 1 pos
       DeltaMoveToPos(0, 45, -125, false); // Занять позицию сверху
-      delay(3000);
+      delay(2500);
       DeltaMoveToPos(0, 45, -140, false); // Занять позицию, опустившись
-      delay(1000);
+      delay(750);
       if (!suctionCupState) PneumaticSuctionCupState(true, 500); // Захватить, если присоска не работала
       else PneumaticSuctionCupState(false, 500); // Отпустить, если присоска до этого захватила
       suctionCupState = !suctionCupState; // Поменять состояние пневматического захвата
@@ -131,9 +131,9 @@ void loop() {
   
       //// 2 pos
       DeltaMoveToPos(-45, -45, -125, false); // Занять позицию сверху
-      delay(3000);
+      delay(2500);
       DeltaMoveToPos(-45, -45, -140, false); // Занять позицию, опустившись
-      delay(1000);
+      delay(750);
       if (!suctionCupState) PneumaticSuctionCupState(true, 500); // Захватить, если присоска не работала
       else PneumaticSuctionCupState(false, 500); // Отпустить, если присоска до этого захватила
       suctionCupState = !suctionCupState; // Поменять состояние пневматического захвата
@@ -144,7 +144,7 @@ void loop() {
       DeltaMoveToPos(45, -45, -125, false); // Занять позицию сверху
       delay(3000);
       DeltaMoveToPos(45, -45, -140, false); // Занять позицию, опустившись
-      delay(1000);
+      delay(750);
       if (!suctionCupState) PneumaticSuctionCupState(true, 500); // Захватить, если присоска не работала
       else PneumaticSuctionCupState(false, 500); // Отпустить, если присоска до этого захватила
       suctionCupState = !suctionCupState; // Поменять состояние пневматического захвата
