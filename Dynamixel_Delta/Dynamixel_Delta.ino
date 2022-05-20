@@ -49,6 +49,7 @@
 #define VM F_PLATFORM_DELTA * SQRT3 / 6 // Радиус окружности осей рычагов
 #define OFFSET_V_IN_PLATFORM_HEIGHT 10 // Размер высоты платформы для смещения точки V
 #define MIN_Z -123 // Минимальная высота работы
+#define MAX_Z -165 // Максимальная высота работы
 
 Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN); // Инициализация указателя на команды из библиотеки Dynamixel
 GTimer servosWorksMaxTimeTimer(MS); // Инициализация таймера защиты максимального времени цикла ожидания занятия позиции сервопривода
@@ -151,6 +152,8 @@ void loop() {
       DeltaMoveToPos(45, -45, -125, false); // Занять начальную позицию
       delay(1000);
     }
+  } else if (workMode == 2) {
+    ManualControl();
   }
 }
 
@@ -158,7 +161,8 @@ void loop() {
 void DeltaMoveToPos(float x, float y, float z, bool waitPerformedPos) {
   //x = constrain(x, -300, 300); // Ограничения по x
   //y = constrain(y, -300, 300); // Ограничения по y
-  //z = constrain(z, -122.0, -280.0); // Ограничения по z
+  z = constrain(z, MAX_Z, MIN_Z); // Ограничения по z
+  Serial.println(z);
   float* servosDegPos = Delta_IK(x, y, z);
   int* servosGoalPos = new int[3];
   if (DEBUG_LEVEL >= 1) {
@@ -370,4 +374,71 @@ void PneumaticSuctionCupState(bool isCapture, int delayTime) {
   if (isCapture) digitalWrite(SOLENOID_RELAY_PIN, HIGH);
   else digitalWrite(SOLENOID_RELAY_PIN, LOW);
   delay(delayTime);
+}
+
+void ManualControl() {
+  int x = 0, y = 0, z = MIN_Z;
+  int xOld = x, yOld = y, zOld = z;
+  bool control = true;
+  DEBUG_SERIAL.print("x: "); DEBUG_SERIAL.print(x); DEBUG_SERIAL.print(" y: "); DEBUG_SERIAL.print(y); DEBUG_SERIAL.print(" z: "); DEBUG_SERIAL.println(z);
+  while (control) {
+    String inputValues[MAX_INPUT_VAL_IN_MANUAL_CONTROL]; // Массив входящей строки
+    String key[MAX_INPUT_VAL_IN_MANUAL_CONTROL]; // Массив ключей
+    int values[MAX_INPUT_VAL_IN_MANUAL_CONTROL]; // Массив значений
+    if (Serial.available() > 2) { // Если есть доступные данные
+      // Встроенная функция readStringUntil будет читать все данные, пришедшие в UART до специального символа — '\n' (перенос строки).
+      // Он появляется в паре с '\r' (возврат каретки) при передаче данных функцией Serial.println().
+      // Эти символы удобно передавать для разделения команд, но не очень удобно обрабатывать. Удаляем их функцией trim().
+      String inputStr = Serial.readStringUntil('\n');
+      inputStr.trim(); // Чистим символы
+      char strBuffer[99]; // Создаём пустой массив символов
+      inputStr.toCharArray(strBuffer, 99); // Перевести строку в массив символов последующего разделения по пробелам
+      // Считываем x и y разделённых пробелом, а также Z
+      for (byte i = 0; i < MAX_INPUT_VAL_IN_MANUAL_CONTROL; i++) {
+        inputValues[i] = (i == 0 ? String(strtok(strBuffer, " ")) : String(strtok(NULL, " ")));
+        inputValues[i].replace(" ", ""); // Убрать возможные пробелы между символами
+        if (DEBUG_LEVEL >= 2) {
+          if (inputValues[i] != "") {
+            if (i > 0) Serial.print(", ");
+            Serial.print(inputValues[i]);
+          }
+          if (i == MAX_INPUT_VAL_IN_MANUAL_CONTROL - 1) Serial.println();
+        }
+      }
+      for (byte i = 0; i < MAX_INPUT_VAL_IN_MANUAL_CONTROL; i++) {
+        if (inputValues[i] == "") continue; // Если значение пустое, то перейти на следующий шаг цикла
+        String inputValue = inputValues[i]; // Записываем в строку обрезанную часть пробелами
+        byte separatorIndexTmp = inputValue.indexOf("="); // Значение, где мы нашли позицию знака равенства
+        byte separatorIndex = (separatorIndexTmp != 255 ? separatorIndexTmp : inputValue.length()); // Окончательная позиция для разделения
+        key[i] = inputValue.substring(0, separatorIndex); // Записываем ключ с начала строки до знака равно
+        values[i] = (inputValue.substring(separatorIndex + 1, inputValue.length())).toInt(); // Записываем значение с начала цифры до конца строки
+        if (key[i] == "x") {
+          x = values[i];
+        } else if (key[i] == "y") {
+          y = values[i];
+        } else if (key[i] == "z") {
+          z = values[i];
+        } else if (key[i] == "s") {
+          SetAllServosSpeed(values[i]);
+        } else if (key[i] == "sc") {
+          if (values[i] == 1) PneumaticSuctionCupState(true, 0);
+          else if (values[i] == 0) PneumaticSuctionCupState(false, 0);
+        } else if (key[i] == "break") {
+          Serial.println(key[i]);
+          control = false;
+          break;
+        }
+        if (key[i].length() > 0) {
+          Serial.print(key[i]); Serial.print(" = "); Serial.println(values[i]); // Печать ключ и значение, если ключ существует
+        }
+        if (x != xOld || y != yOld || z != zOld) {
+          DeltaMoveToPos(x, y, z, false);
+          delay(2000); // Ожидание по времени вместо ожидания пока займут позицию
+          if (x != xOld) xOld = x;
+          if (y != yOld) yOld = y;
+          if (z != zOld) zOld = z;
+        }
+      }
+    }
+  }
 }
