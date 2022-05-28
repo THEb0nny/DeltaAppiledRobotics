@@ -346,10 +346,14 @@ void ManualControl() {
   }
 }
 
-int ConvertDegreesToGoalPos(float degPos) {
-  // 30, 300 - мертвые зоны диномикселя
+int ConvertDegreesToGoalPos(int degPos) {
+  // 30, 330 - физически мертвые зоны диномикселя
+  // Динамиксель команду 1023 - не выполняет, соотвественно 511 средняя позиция, а не как пишет документация 512
   degPos = constrain(degPos, 30, 300); // Ограничиваем входное значение, где 30° - это начальный градус слева и 300°
-  int goalPos = map(degPos, 300, 30, 1023, 0);
+  int goalPos = map(degPos, 300, 30, 1022, 0);
+  if (DEBUG_LEVEL >= 2) {
+    DEBUG_SERIAL.print("inputDegPos: "); DEBUG_SERIAL.print(degPos); DEBUG_SERIAL.print(", "); DEBUG_SERIAL.print("goalPos: "); DEBUG_SERIAL.println(goalPos);
+  }
   return goalPos;
 }
 
